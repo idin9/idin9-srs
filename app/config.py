@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     rtp_max_port: int = 10100
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    # API key authentication. If set, all API requests must include X-API-Key header.
+    # Leave empty to disable authentication (no API key required).
+    api_key: str = ""
     output_dir: str = "recordings"
 
     # ── Transcription Provider ─────────────────────────

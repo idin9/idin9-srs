@@ -3,7 +3,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException, Request, Query, FileResponse
+from fastapi import APIRouter, HTTPException, Request, Query, FileResponse, Header, Depends
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
@@ -16,8 +16,17 @@ from .models import (
     RecordingInfo,
     ErrorResponse,
 )
+from .config import settings
 
 logger = logging.getLogger(__name__)
+
+
+async def verify_api_key(x_api_key: str = Header("", alias="X-API-Key")):
+    if not settings.api_key:
+        return True
+    if x_api_key != settings.api_key:
+        raise HTTPException(status_code=403, detail="Invalid or missing API key")
+    return True
 
 
 def create_router():
@@ -33,6 +42,7 @@ def create_router():
     )
     async def start_recording(
         request: Request,
+        _auth: bool = Depends(verify_api_key),
         caller: Optional[str] = None,
         callee: Optional[str] = None,
     ):
@@ -45,7 +55,7 @@ def create_router():
         responses={404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
         summary="Stop a recording and process results",
     )
-    async def stop_recording(session_id: str, request: Request):
+    async def stop_recording(session_id: str, request: Request, _auth: bool = Depends(verify_api_key)):
         sm = request.app.state.session_manager
         info = await sm.stop_session(session_id)
         if info is None:
@@ -66,7 +76,7 @@ def create_router():
         responses={404: {"model": ErrorResponse}},
         summary="Get sentiment and transcript for a session",
     )
-    async def get_sentiment_transcript(session_id: str, request: Request):
+    async def get_sentiment_transcript(session_id: str, request: Request, _auth: bool = Depends(verify_api_key)):
         sm = request.app.state.session_manager
         info = sm.get_session(session_id)
         if info is not None:
@@ -95,7 +105,7 @@ def create_router():
         summary="Download or play the recording audio file",
         responses={404: {"description": "Audio file not found"}},
     )
-    async def get_audio_file(session_id: str, request: Request):
+    async def get_audio_file(session_id: str, request: Request, _auth: bool = Depends(verify_api_key)):
         """Stream the WAV audio file for playback or download."""
         # First check the indexer for the wav_path
         indexer = request.app.state.indexer
@@ -128,7 +138,7 @@ def create_router():
         response_model=list[SessionInfo],
         summary="List all active recording sessions (in memory)",
     )
-    async def list_sessions(request: Request):
+    async def list_sessions(request: Request, _auth: bool = Depends(verify_api_key)):
         sm = request.app.state.session_manager
         return sm.list_sessions()
 
@@ -141,6 +151,7 @@ def create_router():
     )
     async def list_recordings(
         request: Request,
+        _auth: bool = Depends(verify_api_key),
         limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
         offset: int = Query(0, ge=0, description="Number of records to skip"),
         start_time_from: Optional[str] = Query(None, description="Filter recordings ending after this time (ISO format)"),
@@ -170,7 +181,7 @@ def create_router():
         "/admin/settings",
         summary="Get current system configuration",
     )
-    async def get_settings(request: Request):
+    async def get_settings(request: Request, _auth: bool = Depends(verify_api_key)):
         """Return all current settings from the config."""
         from .config import settings as cfg
 
@@ -196,7 +207,7 @@ def create_router():
         "/admin/settings",
         summary="Update system configuration",
     )
-    async def update_settings(payload: Dict[str, Any], request: Request):
+    async def update_settings(payload: Dict[str, Any], request: Request, _auth: bool = Depends(verify_api_key)):
         """
         Save configuration overrides to config.override.json.
         Note: Some settings (SIP port, RTP ports, Whisper model) require a server restart.
@@ -252,7 +263,7 @@ def create_router():
         "/maintenance/cleanup",
         summary="Trigger cleanup of old recordings based on retention policy",
     )
-    async def trigger_cleanup(request: Request):
+    async def trigger_cleanup(request: Request, _auth: bool = Depends(verify_api_key)):
         """Manually trigger cleanup of recordings older than retention policy."""
         indexer = request.app.state.indexer
         from .config import settings as cfg
@@ -268,9 +279,21 @@ def create_router():
 
     @router.get(
         "/health",
-        summary="Health check",
+        summary="Health check (no API key required)",
     )
     async def health():
         return {"status": "ok"}
+
+    # Public docs/info endpoint — no auth
+    @router.get(
+        "/info",
+        summary="Public service info (no API key required)",
+    )
+    async def public_info():
+        return {
+            "service": "idin9-srs",
+            "version": "1.1.0",
+            "auth_required": bool(settings.api_key),
+        }
 
     return router

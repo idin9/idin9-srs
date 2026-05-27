@@ -188,14 +188,17 @@ python run.py
 > ⚠️ **Note**: Port 5060 requires root privileges on Linux.
 > Use `sudo python run.py` or set `SIP_LISTEN_PORT=15060` in `.env` (non-privileged port).
 
+> 🔑 **API Authentication**: If `API_KEY` is set in `.env`, all API requests must include the header `X-API-Key: your-key`. Health and info endpoints are exempt.
+
 #### 5. Operation Examples
 
 ```bash
-# Health check
+# Health check (no auth required)
 curl http://localhost:8000/api/v1/health
 
-# Start a recording session
-curl -X POST "http://localhost:8000/api/v1/record/start"
+# Start a recording session (with API key if configured)
+curl -X POST "http://localhost:8000/api/v1/record/start" \
+  ${API_KEY:+-H "X-API-Key: $API_KEY"}
 # → {"session_id":"uuid","state":"recording"}
 
 # Stop recording → get transcript + sentiment score

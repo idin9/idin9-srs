@@ -4,6 +4,55 @@
 
 const API_BASE = '/api/v1';
 
+// ── API Key Management ──────────────────────
+function getApiKey() {
+  return localStorage.getItem('idin9_api_key') || '';
+}
+
+function setApiKey(key) {
+  localStorage.setItem('idin9_api_key', key);
+}
+
+async function apiFetch(url, options = {}) {
+  const headers = options.headers || {};
+  const apiKey = getApiKey();
+  if (apiKey) {
+    headers['X-API-Key'] = apiKey;
+  }
+  const res = await fetch(url, { ...options, headers });
+
+  if (res.status === 403) {
+    const key = prompt('API key required. Enter your API key:');
+    if (key) {
+      setApiKey(key);
+      headers['X-API-Key'] = key;
+      const retry = await fetch(url, { ...options, headers });
+      if (retry.status === 403) {
+        setApiKey('');
+        alert('Invalid API key.');
+        return retry;
+      }
+      return retry;
+    }
+  }
+
+  return res;
+}
+
+// Check if auth is needed on load
+(async function checkAuth() {
+  try {
+    const res = await fetch(`${API_BASE}/info`);
+    if (res.ok) {
+      const info = await res.json();
+      if (info.auth_required && !getApiKey()) {
+        const key = prompt('This server requires an API key. Please enter it:');
+        if (key) setApiKey(key);
+      }
+    }
+  } catch {}
+})();
+
 // ============ TAB SWITCHING ============
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -40,7 +89,7 @@ async function searchRecordings() {
   params.set('limit', String(limit));
 
   try {
-    const res = await fetch(`${API_BASE}/recordings?${params}`);
+    const res = await apiFetch(`${API_BASE}/recordings?${params}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();
@@ -106,7 +155,22 @@ async function playAudio(sessionId) {
   modal.style.display = 'flex';
 
   const audioUrl = `${API_BASE}/recordings/${sessionId}/audio`;
-  player.src = audioUrl;
+
+  // Fetch with auth headers for the audio player
+  const apiKey = getApiKey();
+  if (apiKey) {
+    player.src = audioUrl;
+    // Set auth header via fetch + blob for audio
+    try {
+      const res = await apiFetch(audioUrl);
+      if (res.ok) {
+        const blob = await res.blob();
+        player.src = URL.createObjectURL(blob);
+      }
+    } catch {}
+  } else {
+    player.src = audioUrl;
+  }
   player.load();
 
   downloadLink.href = audioUrl;
@@ -114,7 +178,7 @@ async function playAudio(sessionId) {
 
   // Fetch session details
   try {
-    const res = await fetch(`${API_BASE}/record/${sessionId}`);
+    const res = await apiFetch(`${API_BASE}/record/${sessionId}`);
     if (res.ok) {
       const data = await res.json();
       info.innerHTML = `
@@ -147,7 +211,7 @@ async function loadAdminConfig() {
   loading.style.display = 'block';
 
   try {
-    const res = await fetch(`${API_BASE}/admin/settings`);
+    const res = await apiFetch(`${API_BASE}/admin/settings`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const config = await res.json();
@@ -214,7 +278,7 @@ async function saveSettings(event) {
   };
 
   try {
-    const res = await fetch(`${API_BASE}/admin/settings`, {
+    const res = await apiFetch(`${API_BASE}/admin/settings`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -239,7 +303,7 @@ async function triggerCleanup() {
   statusEl.style.color = '#666';
 
   try {
-    const res = await fetch(`${API_BASE}/maintenance/cleanup`, { method: 'POST' });
+    const res = await apiFetch(`${API_BASE}/maintenance/cleanup`, { method: 'POST' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();
