@@ -263,26 +263,9 @@ Set `RETENTION_YEARS=0` in `.env` to keep all recordings indefinitely.
 
 ```bash
 # Using systemd (recommended)
-sudo cat > /etc/systemd/system/siprec.service << 'EOF'
-[Unit]
-Description=idin9-srs Server
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/Projects/idin9-srs
-ExecStart=/Projects/idin9-srs/venv/bin/python run.py
-Restart=always
-RestartSec=5
-LimitNOFILE=65536
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
+sudo cp scripts/idin9-srs.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now siprec
+sudo systemctl enable --now idin9-srs
 ```
 
 #### 10. Web Frontend (Auditor &amp; Administrator)
@@ -980,7 +963,7 @@ WHISPER_COMPUTE_TYPE=float16
 
 ### เซิร์ฟเวอร์ไม่สามารถ bind พอร์ต 5060
 
-**สาเหตุ**: ต้องใช้ root/sudo เพื่อเปิดพอร์ต低于 1024
+**สาเหตุ**: ต้องใช้ root/sudo เพื่อเปิด
 
 **วิธีแก้**:
 
@@ -1056,22 +1039,10 @@ server {
 
 4. **ตั้งค่า Systemd Service**:
 
-```ini
-# /etc/systemd/system/siprec.service
-[Unit]
-Description=idin9-srs Server
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/Projects/idin9-srs
-ExecStart=/Projects/idin9-srs/venv/bin/python run.py
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
+```bash
+sudo cp scripts/idin9-srs.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now idin9-srs
 ```
 
 ```bash
