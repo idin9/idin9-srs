@@ -14,7 +14,7 @@ from .audio_processor import AudioProcessor
 from .transcriber import Transcriber
 from .sentiment_analyzer import SentimentAnalyzer
 from .session_manager import SessionManager
-from .sip_stack import SiprecServer
+from .sip_stack import Idin9SrsServer
 from .api import create_router
 from .indexer import RecordingIndexer
 
@@ -24,7 +24,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-siprec_server: SiprecServer | None = None
+idin9_srs_server: Idin9SrsServer | None = None
 
 
 def load_config_overrides():
@@ -46,7 +46,7 @@ def load_config_overrides():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global siprec_server
+    global idin9_srs_server
 
     # Load runtime config overrides
     load_config_overrides()
@@ -102,14 +102,14 @@ async def lifespan(app: FastAPI):
     app.state.session_manager = sm
     app.state.indexer = indexer
 
-    siprec_server = SiprecServer(
+    idin9_srs_server = Idin9SrsServer(
         host=settings.sip_listen_host,
         port=settings.sip_listen_port,
         rtp_port_allocator=sm.allocate_rtp_port_sync,
         on_new_session_callback=sm.create_session,
         loop=loop,
     )
-    await siprec_server.start()
+    await idin9_srs_server.start()
 
     logger.info(
         "SIPREC server on udp %s:%s, API on %s:%s",
@@ -121,8 +121,8 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    if siprec_server:
-        siprec_server.stop()
+    if idin9_srs_server:
+        idin9_srs_server.stop()
     logger.info("Server stopped")
 
 
@@ -130,7 +130,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="idin9-srs",
         description="SIPREC recording server with sentiment analysis and transcription",
-        version="1.2.0",
+        version="1.3.0",
         lifespan=lifespan,
     )
 
@@ -151,7 +151,7 @@ def create_app() -> FastAPI:
             return HTMLResponse(index_path.read_text())
         return {
             "service": "idin9-srs",
-            "version": "1.2.0",
+            "version": "1.3.0",
             "docs": "/docs",
         }
 

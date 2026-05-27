@@ -122,7 +122,7 @@ def extract_sdp_media_streams(sdp_body: str) -> List[Dict[str, Any]]:
     return streams
 
 
-def extract_siprec_metadata(xml_body: str) -> Dict[str, str]:
+def extract_recording_metadata(xml_body: str) -> Dict[str, str]:
     """
     Parse SIPREC XML metadata and extract caller/callee info.
     Returns dict with possible keys: caller, callee, session_id, direction, etc.

@@ -7,7 +7,7 @@
 #   ./scripts/cleanup.sh [path-to-project]
 #
 # Add to crontab (run daily at 3am):
-#   0 3 * * * /path/to/idin9-srs/scripts/cleanup.sh /path/to/idin9-srs >> /var/log/siprec-cleanup.log 2>&1
+#   0 3 * * * /path/to/idin9-srs/scripts/cleanup.sh /path/to/idin9-srs >> /var/log/idin9-srs-cleanup.log 2>&1
 #
 
 set -euo pipefail
@@ -36,7 +36,7 @@ if [ ! -f "$DB_PATH" ]; then
     exit 0
 fi
 
-echo "=== SIPREC Cleanup: $(date) ==="
+echo "=== idin9-srs Cleanup: $(date) ==="
 echo "Project: $PROJECT_DIR"
 echo "Retention: ${RETENTION_YEARS} years"
 echo "Database: $DB_PATH"

@@ -30,7 +30,7 @@ async def verify_api_key(x_api_key: str = Header("", alias="X-API-Key")):
 
 
 def create_router():
-    router = APIRouter(prefix="/api/v1", tags=["siprec"])
+    router = APIRouter(prefix="/api/v1", tags=["idin9-srs"])
 
     # ===================== RECORD =====================
 
@@ -292,7 +292,7 @@ def create_router():
     async def public_info():
         return {
             "service": "idin9-srs",
-            "version": "1.2.0",
+            "version": "1.3.0",
             "auth_required": bool(settings.api_key),
         }
 

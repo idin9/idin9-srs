@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**Version:** 1.2.0  |
+**Version:** 1.3.0  |
 **Author:** Kanit Klai-Udom  |
 **Contact:** [www.idin9.com](https://www.idin9.com)  
 **Author:** Kanit Klai-Udom  
@@ -229,7 +229,7 @@ The server indexes recordings in a SQLite database (`recordings/index.db`). All 
 - **Cron job**: Add to crontab for daily cleanup at 3 AM:
 
 ```bash
-0 3 * * * /path/to/idin9-srs/scripts/cleanup.sh /path/to/idin9-srs >> /var/log/siprec-cleanup.log 2>&1
+0 3 * * * /path/to/idin9-srs/scripts/cleanup.sh /path/to/idin9-srs >> /var/log/idin9-srs-cleanup.log 2>&1
 ```
 
 Set `RETENTION_YEARS=0` in `.env` to keep all recordings indefinitely.
@@ -305,7 +305,7 @@ Project Root
 - **Backup**: To protect your data:
 
 ```bash
-tar -czf siprec-backup-$(date +%Y%m%d).tar.gz recordings/ config.override.json
+tar -czf idin9-srs-backup-$(date +%Y%m%d).tar.gz recordings/ config.override.json
 ```
 
 #### 12. Sentiment Score Customization &amp; Language Support
@@ -1011,8 +1011,8 @@ Session จะถูกสร้างเมื่อได้รับ SIP INVI
 # ติดตั้ง supervisor
 sudo apt install supervisor
 
-# สร้างไฟล์ /etc/supervisor/conf.d/siprec.conf
-[program:siprec]
+# สร้างไฟล์ /etc/supervisor/conf.d/idin9-srs.conf
+[program:idin9-srs]
 command=/home/user/idin9-srs/venv/bin/python run.py
 directory=/home/user/idin9-srs
 user=root
@@ -1025,7 +1025,7 @@ autorestart=true
 ```nginx
 server {
     listen 443 ssl;
-    server_name siprec.domain.com;
+    server_name idin9-srs.domain.com;
 
     location / {
         proxy_pass http://127.0.0.1:8000;
@@ -1046,8 +1046,8 @@ sudo systemctl enable --now idin9-srs
 ```
 
 ```bash
-sudo systemctl enable siprec
-sudo systemctl start siprec
+sudo systemctl enable idin9-srs
+sudo systemctl start idin9-srs
 ```
 
 ---

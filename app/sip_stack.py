@@ -8,7 +8,8 @@ from typing import Optional, Callable, Awaitable
 from .mime_parser import (
     parse_multipart_body,
     extract_sdp_media_streams,
-    extract_siprec_metadata,
+    extract_recording_metadata,
+
     build_sdp_with_streams,
 )
 
@@ -124,7 +125,7 @@ def build_ack(message: dict) -> bytes:
     return text.encode("utf-8")
 
 
-class SiprecServer:
+class Idin9SrsServer:
     def __init__(
         self,
         host: str,
@@ -143,7 +144,7 @@ class SiprecServer:
 
     async def start(self):
         self.transport, _ = await self.loop.create_datagram_endpoint(
-            lambda: SiprecProtocol(self),
+            lambda: Idin9SrsProtocol(self),
             local_addr=(self.host, self.port),
         )
         logger.info("SIPREC server listening on udp %s:%s", self.host, self.port)
@@ -182,7 +183,7 @@ class SiprecServer:
                 if 'application/sdp' in ct:
                     sdp_body = part['content']
                 elif 'application/xml' in ct or 'text/xml' in ct or 'xml' in ct:
-                    xml_metadata = extract_siprec_metadata(part['content'])
+                    xml_metadata = extract_recording_metadata(part['content'])
         elif 'application/sdp' in content_type:
             sdp_body = msg.get("body", "")
 
@@ -217,7 +218,7 @@ class SiprecServer:
         # Send 200 OK with SDP containing all allocated ports
         response_200 = build_response(
             200, "OK", msg,
-            f"siprec@{self.server_ip}:{self.port}",
+            f"idin9-srs@{self.server_ip}:{self.port}",
             allocated_ports,
             self.server_ip,
         )
@@ -248,7 +249,7 @@ class SiprecServer:
         # Send 200 OK for BYE
         response = build_response(
             200, "OK", msg,
-            f"siprec@{self.server_ip}:{self.port}",
+            f"idin9-srs@{self.server_ip}:{self.port}",
             [0],
             self.server_ip,
         )
@@ -256,8 +257,8 @@ class SiprecServer:
         logger.info("Session %s ended via BYE", call_id)
 
 
-class SiprecProtocol(asyncio.DatagramProtocol):
-    def __init__(self, server: SiprecServer):
+class Idin9SrsProtocol(asyncio.DatagramProtocol):
+    def __init__(self, server: Idin9SrsServer):
         self.server = server
 
     def datagram_received(self, data: bytes, addr: tuple):
