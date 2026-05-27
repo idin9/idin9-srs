@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>idin9-srs</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>idin9-srs</h1>
+    <p class="subtitle">Session Recording &middot; Speech-to-Text &middot; Sentiment Analysis</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="auditor" onclick="switchTab('auditor')">Auditor</button>
+    <button class="tab-btn" data-tab="admin" onclick="switchTab('admin')">Administrator</button>
+  </nav>
+
+  <!-- ============ AUDITOR TAB ============ -->
+  <section id="tab-auditor" class="tab-content active">
+    <h2>Recording Search &amp; Playback</h2>
+
+    <div class="search-panel">
+      <div class="search-row">
+        <div class="search-field">
+          <label>Date/Time From</label>
+          <input type="datetime-local" id="filter-start" step="1">
+        </div>
+        <div class="search-field">
+          <label>Date/Time To</label>
+          <input type="datetime-local" id="filter-end" step="1">
+        </div>
+        <div class="search-field">
+          <label>Caller</label>
+          <input type="text" id="filter-caller" placeholder="sip:agent@domain">
+        </div>
+        <div class="search-field">
+          <label>Callee</label>
+          <input type="text" id="filter-callee" placeholder="sip:customer@domain">
+        </div>
+      </div>
+      <div class="search-row">
+        <div class="search-field">
+          <label>Min Sentiment (1-10)</label>
+          <input type="number" id="filter-min-sent" min="1" max="10" step="0.1" placeholder="1">
+        </div>
+        <div class="search-field">
+          <label>Max Sentiment (1-10)</label>
+          <input type="number" id="filter-max-sent" min="1" max="10" step="0.1" placeholder="10">
+        </div>
+        <div class="search-field">
+          <label>Results per page</label>
+          <input type="number" id="filter-limit" value="50" min="1" max="1000">
+        </div>
+        <div class="search-field search-actions">
+          <button class="btn btn-primary" onclick="searchRecordings()">Search</button>
+          <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-bar" id="stats-bar"></div>
+
+    <div class="table-wrapper">
+      <table id="results-table">
+        <thead>
+          <tr>
+            <th>Date/Time</th>
+            <th>Caller</th>
+            <th>Callee</th>
+            <th>Duration</th>
+            <th>Sentiment</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="results-body">
+          <tr><td colspan="6" class="empty-msg">Use the search filters above and click Search</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Audio Player Modal -->
+    <div id="audio-modal" class="modal" style="display:none">
+      <div class="modal-content">
+        <span class="modal-close" onclick="closeAudioModal()">&times;</span>
+        <h3 id="audio-modal-title">Audio Playback</h3>
+        <audio id="audio-player" controls style="width:100%">
+          <p>Your browser does not support the audio element.</p>
+        </audio>
+        <div class="audio-info" id="audio-info"></div>
+        <div class="audio-actions">
+          <a id="audio-download-link" class="btn btn-secondary" download>Download WAV</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ADMIN TAB ============ -->
+  <section id="tab-admin" class="tab-content">
+    <h2>System Configuration</h2>
+
+    <div id="admin-loading" class="loading-indicator">Loading configuration...</div>
+
+    <form id="admin-form" style="display:none" onsubmit="saveSettings(event)">
+      <div class="config-section">
+        <h3>SIPREC Server</h3>
+        <div class="config-row">
+          <label>SIP Listen Host</label>
+          <input type="text" name="sip_listen_host" readonly>
+          <span class="hint">Requires restart</span>
+        </div>
+        <div class="config-row">
+          <label>SIP Listen Port</label>
+          <input type="number" name="sip_listen_port" readonly>
+          <span class="hint">Requires restart &amp; root privileges for &lt;1024</span>
+        </div>
+        <div class="config-row">
+          <label>RTP Port Range</label>
+          <span class="config-group">
+            <input type="number" name="rtp_min_port" readonly style="width:80px">
+            <span> - </span>
+            <input type="number" name="rtp_max_port" readonly style="width:80px">
+          </span>
+          <span class="hint">Requires restart</span>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <h3>Whisper (Speech-to-Text)</h3>
+        <div class="config-row">
+          <label>Model Size</label>
+          <select name="whisper_model_size">
+            <option value="tiny">tiny (fastest, least accurate)</option>
+            <option value="base">base (balanced)</option>
+            <option value="small">small (more accurate)</option>
+            <option value="medium">medium (very accurate)</option>
+            <option value="large-v3">large-v3 (most accurate, slowest)</option>
+          </select>
+          <span class="hint">Requires restart to change model</span>
+        </div>
+        <div class="config-row">
+          <label>Device</label>
+          <select name="whisper_device">
+            <option value="auto">auto</option>
+            <option value="cpu">cpu</option>
+            <option value="cuda">cuda</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <h3>Sentiment Analysis</h3>
+        <div class="config-row">
+          <label>Model</label>
+          <input type="text" name="sentiment_model" readonly>
+        </div>
+        <div class="config-row">
+          <label>Emotion → Score Mapping</label>
+          <textarea name="sentiment_mapping" rows="4" style="font-family:monospace"></textarea>
+          <span class="hint">JSON: {"emotion": score, ...}</span>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <h3>Storage &amp; Retention</h3>
+        <div class="config-row">
+          <label>Output Directory</label>
+          <input type="text" name="output_dir" readonly>
+        </div>
+        <div class="config-row">
+          <label>Retention (years)</label>
+          <input type="number" name="retention_years" min="0" max="99">
+          <span class="hint">0 = keep indefinitely</span>
+        </div>
+        <div class="config-row">
+          <label>Index Database</label>
+          <input type="text" name="index_db" readonly>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save Configuration</button>
+        <span id="save-status" class="save-status"></span>
+      </div>
+    </form>
+
+    <div class="config-section" style="margin-top:20px">
+      <h3>System Actions</h3>
+      <div class="action-row">
+        <button class="btn btn-warning" onclick="triggerCleanup()">Run Retention Cleanup</button>
+        <span id="cleanup-status"></span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>idin9-srs v1.1 &middot; <a href="/docs">API Docs</a></p>
+  </footer>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

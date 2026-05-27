@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+*.so
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment variables (contains secrets)
+.env
+
+# Runtime overrides
+config.override.json
+
+# Recordings / index
+recordings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
