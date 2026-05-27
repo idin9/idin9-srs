@@ -292,7 +292,7 @@ def create_router():
     async def public_info():
         return {
             "service": "idin9-srs",
-            "version": "1.1.0",
+            "version": "1.2.0",
             "auth_required": bool(settings.api_key),
         }
 
