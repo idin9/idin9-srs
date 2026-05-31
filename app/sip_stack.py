@@ -3,7 +3,7 @@ import re
 import uuid
 import logging
 from datetime import datetime
-from typing import Optional, Callable, Awaitable
+from typing import Optional, Callable
 
 from .mime_parser import (
     parse_multipart_body,

@@ -6,6 +6,7 @@ Handles multipart/mixed bodies containing SDP and XML metadata.
 import re
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Optional, Any
+from datetime import datetime
 
 
 def parse_multipart_body(content_type: str, body: str) -> List[Dict[str, str]]:
@@ -205,10 +206,7 @@ def build_sdp_with_streams(server_ip: str, rtp_ports: List[int]) -> str:
             "a=rtpmap:111 opus/48000/2",
             "a=sendrecv",
             "a=rtcp-mux",
-            "a=label:stream-{port}",
+            f"a=label:stream-{port}",
         ])
 
     return "\r\n".join(lines) + "\r\n"
-
-
-from datetime import datetime

@@ -29,25 +29,17 @@ async def verify_api_key(x_api_key: str = Header("", alias="X-API-Key")):
     return True
 
 
+def _validate_uuid(session_id: str):
+    try:
+        uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(400, detail=f"Invalid session_id format: {session_id}")
+
+
 def create_router():
     router = APIRouter(prefix="/api/v1", tags=["idin9-srs"])
 
     # ===================== RECORD =====================
-
-    @router.post(
-        "/record/start",
-        response_model=StartRecordResponse,
-        responses={500: {"model": ErrorResponse}},
-        summary="Start a SIPREC recording session",
-    )
-    async def start_recording(
-        request: Request,
-        _auth: bool = Depends(verify_api_key),
-        caller: Optional[str] = None,
-        callee: Optional[str] = None,
-    ):
-        session_id = str(uuid.uuid4())
-        return StartRecordResponse(session_id=session_id, state=SessionState.recording)
 
     @router.post(
         "/record/stop/{session_id}",
@@ -56,6 +48,7 @@ def create_router():
         summary="Stop a recording and process results",
     )
     async def stop_recording(session_id: str, request: Request, _auth: bool = Depends(verify_api_key)):
+        _validate_uuid(session_id)
         sm = request.app.state.session_manager
         info = await sm.stop_session(session_id)
         if info is None:
@@ -77,6 +70,7 @@ def create_router():
         summary="Get sentiment and transcript for a session",
     )
     async def get_sentiment_transcript(session_id: str, request: Request, _auth: bool = Depends(verify_api_key)):
+        _validate_uuid(session_id)
         sm = request.app.state.session_manager
         info = sm.get_session(session_id)
         if info is not None:
@@ -107,21 +101,22 @@ def create_router():
     )
     async def get_audio_file(session_id: str, request: Request, _auth: bool = Depends(verify_api_key)):
         """Stream the WAV audio file for playback or download."""
-        # First check the indexer for the wav_path
+        _validate_uuid(session_id)
         indexer = request.app.state.indexer
         record = indexer.get_recording(session_id)
         if record and record.get("wav_path") and os.path.exists(record["wav_path"]):
+            resolved = os.path.abspath(record["wav_path"])
             return FileResponse(
-                record["wav_path"],
+                resolved,
                 media_type="audio/wav",
                 filename=f"{session_id}.wav",
                 headers={"Accept-Ranges": "bytes"},
             )
 
-        # Fall back to the default path pattern
         from .config import settings
-        wav_path = os.path.join(settings.output_dir, f"{session_id}.wav")
-        if os.path.exists(wav_path):
+        output_abs = os.path.abspath(settings.output_dir)
+        wav_path = os.path.normpath(os.path.join(output_abs, f"{session_id}.wav"))
+        if wav_path.startswith(output_abs) and os.path.exists(wav_path):
             return FileResponse(
                 wav_path,
                 media_type="audio/wav",
@@ -214,6 +209,7 @@ def create_router():
         """
         allowed_fields = {
             "sentiment_mapping",
+            "sentiment_model",
             "whisper_model_size",
             "whisper_device",
             "whisper_compute_type",

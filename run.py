@@ -13,7 +13,7 @@ def main():
         "app.main:app",
         host=settings.api_host,
         port=settings.api_port,
-        reload=True,
+        reload=False,
         log_level="info",
     )
 

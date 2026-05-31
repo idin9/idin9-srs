@@ -2,7 +2,6 @@ import asyncio
 import logging
 import threading
 from typing import Optional, Callable
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from .models import SessionState, SessionInfo
@@ -38,11 +37,19 @@ class SessionManager:
         self._rtp_sessions: dict[tuple[str, int], RtpSession] = {}
         self._next_rtp_port = self.rtp_min_port
         self._rtp_port_lock = threading.Lock()
-        self._thread_pool = ThreadPoolExecutor(max_workers=2)
+        self._used_rtp_ports: set[int] = set()
 
     def allocate_rtp_port_sync(self) -> int | None:
         with self._rtp_port_lock:
+            start = self._next_rtp_port
+            while self._next_rtp_port in self._used_rtp_ports:
+                self._next_rtp_port += 2
+                if self._next_rtp_port > self.rtp_max_port:
+                    self._next_rtp_port = self.rtp_min_port
+                if self._next_rtp_port == start:
+                    return None
             port = self._next_rtp_port
+            self._used_rtp_ports.add(port)
             self._next_rtp_port += 2
             if self._next_rtp_port > self.rtp_max_port:
                 self._next_rtp_port = self.rtp_min_port

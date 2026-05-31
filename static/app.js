@@ -95,7 +95,7 @@ async function searchRecordings() {
     const data = await res.json();
     renderResults(data);
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">Error: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -124,8 +124,8 @@ function renderResults(recordings) {
       <td>${dur}</td>
       <td><span class="sentiment-badge ${scoreClass}">${score.toFixed(1)}</span></td>
       <td class="actions-cell">
-        <button class="btn btn-primary btn-sm" onclick="playAudio('${r.session_id}')">Play</button>
-        <a href="${API_BASE}/recordings/${r.session_id}/audio" class="btn btn-secondary btn-sm" download>Export</a>
+        <button class="btn btn-primary btn-sm" onclick="playAudio('${encodeURIComponent(r.session_id)}')">Play</button>
+        <a href="${API_BASE}/recordings/${encodeURIComponent(r.session_id)}/audio" class="btn btn-secondary btn-sm" download>Export</a>
       </td>
     </tr>`;
   }).join('');
