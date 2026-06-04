@@ -3,7 +3,8 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta
-from fastapi import APIRouter, HTTPException, Request, Query, FileResponse, Header, Depends
+from fastapi import APIRouter, HTTPException, Request, Query, Header, Depends
+from fastapi.responses import FileResponse
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
@@ -188,12 +189,23 @@ def create_router():
             "rtp_max_port": cfg.rtp_max_port,
             "api_host": cfg.api_host,
             "api_port": cfg.api_port,
+            "api_key": cfg.api_key,
             "output_dir": cfg.output_dir,
+            "transcription_provider": cfg.transcription_provider,
+            "transcription_api_key": cfg.transcription_api_key,
+            "transcription_api_url": cfg.transcription_api_url,
+            "transcription_api_model": cfg.transcription_api_model,
+            "sentiment_provider": cfg.sentiment_provider,
+            "sentiment_api_key": cfg.sentiment_api_key,
+            "sentiment_api_url": cfg.sentiment_api_url,
+            "sentiment_api_model": cfg.sentiment_api_model,
             "whisper_model_size": cfg.whisper_model_size,
             "whisper_device": cfg.whisper_device,
             "whisper_compute_type": cfg.whisper_compute_type,
+            "whisper_cache_dir": cfg.whisper_cache_dir,
             "sentiment_model": cfg.sentiment_model,
             "sentiment_mapping": mapping_raw,
+            "hf_cache_dir": cfg.hf_cache_dir,
             "retention_years": cfg.retention_years,
             "index_db": cfg.index_db,
         }
@@ -208,11 +220,22 @@ def create_router():
         Note: Some settings (SIP port, RTP ports, Whisper model) require a server restart.
         """
         allowed_fields = {
-            "sentiment_mapping",
-            "sentiment_model",
+            "api_key",
+            "transcription_provider",
+            "transcription_api_key",
+            "transcription_api_url",
+            "transcription_api_model",
+            "sentiment_provider",
+            "sentiment_api_key",
+            "sentiment_api_url",
+            "sentiment_api_model",
             "whisper_model_size",
             "whisper_device",
             "whisper_compute_type",
+            "whisper_cache_dir",
+            "sentiment_model",
+            "sentiment_mapping",
+            "hf_cache_dir",
             "retention_years",
             "output_dir",
         }
@@ -288,7 +311,7 @@ def create_router():
     async def public_info():
         return {
             "service": "idin9-srs",
-            "version": "1.3.0",
+            "version": "1.4.0",
             "auth_required": bool(settings.api_key),
         }
 

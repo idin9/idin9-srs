@@ -227,9 +227,12 @@ function populateAdminForm(config) {
   const fields = [
     'sip_listen_host', 'sip_listen_port',
     'rtp_min_port', 'rtp_max_port',
-    'output_dir', 'index_db',
-    'sentiment_model', 'retention_years',
-    'whisper_device',
+    'api_key',
+    'transcription_provider', 'transcription_api_key', 'transcription_api_url', 'transcription_api_model',
+    'whisper_device', 'whisper_cache_dir',
+    'sentiment_provider', 'sentiment_api_key', 'sentiment_api_url', 'sentiment_api_model',
+    'sentiment_model', 'hf_cache_dir',
+    'output_dir', 'index_db', 'retention_years',
   ];
 
   fields.forEach(name => {
@@ -269,10 +272,21 @@ async function saveSettings(event) {
   }
 
   const payload = {
-    sentiment_mapping: mappingParsed,
-    sentiment_model: document.querySelector('[name="sentiment_model"]').value,
+    api_key: document.querySelector('[name="api_key"]').value.trim(),
+    transcription_provider: document.querySelector('[name="transcription_provider"]').value,
+    transcription_api_key: document.querySelector('[name="transcription_api_key"]').value.trim(),
+    transcription_api_url: document.querySelector('[name="transcription_api_url"]').value.trim(),
+    transcription_api_model: document.querySelector('[name="transcription_api_model"]').value.trim(),
     whisper_model_size: document.querySelector('[name="whisper_model_size"]').value,
     whisper_device: document.querySelector('[name="whisper_device"]').value,
+    whisper_cache_dir: document.querySelector('[name="whisper_cache_dir"]').value.trim(),
+    sentiment_provider: document.querySelector('[name="sentiment_provider"]').value,
+    sentiment_api_key: document.querySelector('[name="sentiment_api_key"]').value.trim(),
+    sentiment_api_url: document.querySelector('[name="sentiment_api_url"]').value.trim(),
+    sentiment_api_model: document.querySelector('[name="sentiment_api_model"]').value.trim(),
+    sentiment_model: document.querySelector('[name="sentiment_model"]').value.trim(),
+    sentiment_mapping: mappingParsed,
+    hf_cache_dir: document.querySelector('[name="hf_cache_dir"]').value.trim(),
     retention_years: parseInt(document.querySelector('[name="retention_years"]').value) || 7,
     output_dir: document.querySelector('[name="output_dir"]').value,
   };

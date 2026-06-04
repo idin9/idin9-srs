@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**Version:** 1.3.0  |
+**Version:** 1.4.0  |
 **Author:** Kanit Klai-Udom  |
 **Contact:** [www.idin9.com](https://www.idin9.com)  
 **Author:** Kanit Klai-Udom  
@@ -387,7 +387,7 @@ SENTIMENT_API_MODEL=gpt-4o-mini    # Default
 
 Uses OpenAI's Whisper API for transcription and GPT chat completion for sentiment analysis.
 
-#### Ollama (local, fully offline)
+#### Ollama (fully offline — local or remote)
 
 ```bash
 # Install Ollama: https://ollama.com
@@ -395,14 +395,63 @@ ollama pull whisper         # For transcription
 ollama pull llama3.2        # For sentiment analysis
 ```
 
+**Local Ollama** (same machine):
+
 ```ini
 TRANSCRIPTION_PROVIDER=ollama
-TRANSCRIPTION_API_URL=http://localhost:11434  # Default
-TRANSCRIPTION_API_MODEL=whisper               # Default
+TRANSCRIPTION_API_URL=http://localhost:11434
+TRANSCRIPTION_API_MODEL=whisper
 
 SENTIMENT_PROVIDER=ollama
-SENTIMENT_API_URL=http://localhost:11434      # Default
-SENTIMENT_API_MODEL=llama3.2                  # Default
+SENTIMENT_API_URL=http://localhost:11434
+SENTIMENT_API_MODEL=llama3.2
+```
+
+**Remote Ollama** (different machine on the network):
+
+```ini
+TRANSCRIPTION_PROVIDER=ollama
+TRANSCRIPTION_API_URL=http://192.168.1.100:11434
+TRANSCRIPTION_API_MODEL=whisper
+
+SENTIMENT_PROVIDER=ollama
+SENTIMENT_API_URL=http://192.168.1.100:11434
+SENTIMENT_API_MODEL=llama3.2
+```
+
+> 💡 **Ollama binds to 127.0.0.1 by default.** To accept remote connections, set the environment variable `OLLAMA_HOST=0.0.0.0` before starting Ollama on the remote machine:
+> ```bash
+> export OLLAMA_HOST=0.0.0.0
+> ollama serve
+> ```
+> Or add it to the Ollama systemd override:
+> ```bash
+> sudo systemctl edit ollama.service
+> # Add: [Service]
+> #      Environment=OLLAMA_HOST=0.0.0.0
+> sudo systemctl restart ollama
+> ```
+> Then verify from the idin9-srs machine: `curl http://192.168.1.100:11434/api/tags`
+
+**Full offload example** — no local AI models needed, everything runs on the remote Ollama machine:
+
+```bash
+# On the Ollama server (192.168.1.100):
+export OLLAMA_HOST=0.0.0.0
+ollama pull whisper
+ollama pull llama3.2
+
+# On the idin9-srs machine, .env:
+TRANSCRIPTION_PROVIDER=ollama
+SENTIMENT_PROVIDER=ollama
+TRANSCRIPTION_API_URL=http://192.168.1.100:11434
+SENTIMENT_API_URL=http://192.168.1.100:11434
+TRANSCRIPTION_API_MODEL=whisper
+SENTIMENT_API_MODEL=llama3.2
+
+# No GPU needed on the idin9-srs machine!
+# No heavy models downloaded locally.
+# The idin9-srs machine only needs CPU + network access to the Ollama server.
 ```
 
 #### Google Gemini

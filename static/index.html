@@ -105,7 +105,7 @@
 
     <form id="admin-form" style="display:none" onsubmit="saveSettings(event)">
       <div class="config-section">
-        <h3>SIPREC Server</h3>
+        <h3>Server &amp; Security</h3>
         <div class="config-row">
           <label>SIP Listen Host</label>
           <input type="text" name="sip_listen_host" readonly>
@@ -125,10 +125,41 @@
           </span>
           <span class="hint">Requires restart</span>
         </div>
+        <div class="config-row">
+          <label>Server API Key</label>
+          <input type="text" name="api_key" placeholder="Keep empty to disable API authentication">
+          <span class="hint">Secures API endpoints with X-API-Key header</span>
+        </div>
       </div>
 
       <div class="config-section">
-        <h3>Whisper (Speech-to-Text)</h3>
+        <h3>AI Provider (Transcription)</h3>
+        <div class="config-row">
+          <label>Provider</label>
+          <select name="transcription_provider">
+            <option value="local">local (Whisper locally)</option>
+            <option value="openai">openai (OpenAI Whisper API)</option>
+            <option value="ollama">ollama (Ollama local/remote API)</option>
+            <option value="gemini">gemini (Google Gemini API)</option>
+          </select>
+        </div>
+        <div class="config-row">
+          <label>API Key</label>
+          <input type="text" name="transcription_api_key" placeholder="Enter key if using cloud APIs">
+          <span class="hint">For OpenAI or Gemini</span>
+        </div>
+        <div class="config-row">
+          <label>API URL</label>
+          <input type="text" name="transcription_api_url" placeholder="Default endpoint if left empty">
+          <span class="hint">e.g., http://localhost:11434 for local Ollama</span>
+        </div>
+        <div class="config-row">
+          <label>API Model</label>
+          <input type="text" name="transcription_api_model" placeholder="Default model if left empty">
+          <span class="hint">e.g. whisper-1 for OpenAI, whisper for Ollama</span>
+        </div>
+        
+        <h4 style="margin-top: 15px; border-bottom: 1px dashed #ddd; padding-bottom: 5px;">Local Whisper Configuration (Only if Provider is 'local')</h4>
         <div class="config-row">
           <label>Model Size</label>
           <select name="whisper_model_size">
@@ -138,7 +169,7 @@
             <option value="medium">medium (very accurate)</option>
             <option value="large-v3">large-v3 (most accurate, slowest)</option>
           </select>
-          <span class="hint">Requires restart to change model</span>
+          <span class="hint">Requires restart to change local model</span>
         </div>
         <div class="config-row">
           <label>Device</label>
@@ -148,13 +179,47 @@
             <option value="cuda">cuda</option>
           </select>
         </div>
+        <div class="config-row">
+          <label>Local Cache Dir</label>
+          <input type="text" name="whisper_cache_dir" placeholder="Leave empty for default directory (~/.cache/whisper)">
+        </div>
       </div>
 
       <div class="config-section">
-        <h3>Sentiment Analysis</h3>
+        <h3>AI Provider (Sentiment Analysis)</h3>
         <div class="config-row">
-          <label>Model</label>
+          <label>Provider</label>
+          <select name="sentiment_provider">
+            <option value="local">local (HuggingFace locally)</option>
+            <option value="openai">openai (OpenAI Chat API)</option>
+            <option value="ollama">ollama (Ollama local/remote API)</option>
+            <option value="gemini">gemini (Google Gemini API)</option>
+          </select>
+        </div>
+        <div class="config-row">
+          <label>API Key</label>
+          <input type="text" name="sentiment_api_key" placeholder="Enter key if using cloud APIs">
+          <span class="hint">For OpenAI or Gemini</span>
+        </div>
+        <div class="config-row">
+          <label>API URL</label>
+          <input type="text" name="sentiment_api_url" placeholder="Default endpoint if left empty">
+          <span class="hint">e.g., http://localhost:11434 for local Ollama</span>
+        </div>
+        <div class="config-row">
+          <label>API Model</label>
+          <input type="text" name="sentiment_api_model" placeholder="Default model if left empty">
+          <span class="hint">e.g. gpt-4o-mini for OpenAI, llama3.2 for Ollama</span>
+        </div>
+
+        <h4 style="margin-top: 15px; border-bottom: 1px dashed #ddd; padding-bottom: 5px;">Local Sentiment Configuration (Only if Provider is 'local')</h4>
+        <div class="config-row">
+          <label>Local Model</label>
           <input type="text" name="sentiment_model" readonly>
+        </div>
+        <div class="config-row">
+          <label>Local Cache Dir</label>
+          <input type="text" name="hf_cache_dir" placeholder="Leave empty for default directory (~/.cache/huggingface)">
         </div>
         <div class="config-row">
           <label>Emotion → Score Mapping</label>
@@ -196,7 +261,7 @@
   </section>
 
   <footer>
-    <p>idin9-srs v1.3 &middot; <a href="/docs">API Docs</a></p>
+    <p>idin9-srs v1.4 &middot; <a href="/docs">API Docs</a></p>
   </footer>
 </div>
 
