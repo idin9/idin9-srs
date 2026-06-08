@@ -493,7 +493,73 @@ Mount the same cache directories in production to avoid re-downloading.
 
 ---
 
-## ภาษาไทย 🇹🇭
+## 14. Upgrade Procedure
+
+### General Upgrade Steps
+
+```bash
+# 1. Pull latest code
+cd /Projects/idin9-srs
+git pull origin main
+
+# 2. Activate virtual environment and update dependencies
+source venv/bin/activate
+pip install --upgrade -r requirements.txt
+
+# 3. Review and merge new configuration parameters
+#    Compare your .env with .env.example to add any new settings.
+#    NOTE: Your existing .env will NOT be overwritten.
+diff .env .env.example  # see what's new
+
+# 4. Restart the service
+sudo systemctl restart idin9-srs
+# Or if running manually:
+# python run.py
+```
+
+### Version Migration Notes
+
+#### Upgrading from v1.0 / v1.1 / v1.2
+
+| Change | Action Required |
+|--------|----------------|
+| **External AI providers added** (v1.2+) | Add to `.env`: `TRANSCRIPTION_PROVIDER`, `SENTIMENT_PROVIDER`, `TRANSCRIPTION_API_KEY`, `TRANSCRIPTION_API_URL`, `TRANSCRIPTION_API_MODEL`, `SENTIMENT_API_KEY`, `SENTIMENT_API_URL`, `SENTIMENT_API_MODEL`. Default is `local` (no change in behavior). |
+| **API key authentication** (v1.2+) | Add `API_KEY=` to `.env`. Leave empty to keep auth disabled. |
+| **New `providers.py` module** (v1.2+) | File is auto-imported; no manual action needed. |
+| **AI model cache directories** (v1.2+) | Add to `.env`: `WHISPER_CACHE_DIR=`, `HF_CACHE_DIR=`. Leave empty for default paths. |
+
+#### Upgrading from v1.0 / v1.1 (id替换: siprec → idin9-srs)
+
+| Change | Action Required |
+|--------|----------------|
+| **Class renames** — `SiprecServer` → `Idin9SrsServer`, `SiprecProtocol` → `Idin9SrsProtocol` (v1.3) | Python code only; no user action needed. |
+| **Function rename** — `extract_siprec_metadata` → `extract_recording_metadata` (v1.3) | Only affects custom code importing this function. |
+| **File rename** — `scripts/siprec.service` → `scripts/idin9-srs.service` (v1.3) | Remove old service: `sudo systemctl stop siprec && sudo rm /etc/systemd/system/siprec.service`. Install new one: `sudo cp scripts/idin9-srs.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now idin9-srs`. |
+| **Log file rename** — `/var/log/siprec-cleanup.log` → `/var/log/idin9-srs-cleanup.log` (v1.3) | Update cron job path if you use one. |
+
+#### Upgrading from v1.2 / v1.3
+
+| Change | Action Required |
+|--------|----------------|
+| **Admin UI supports AI provider config** (v1.4) | Frontend auto-updates; no action needed. Go to the Administrator tab to see new fields. |
+| **Removed `POST /record/start`** (v1.4) | Remove any scripts calling this deprecated endpoint. Sessions are created only by SIP INVITE. |
+| **UUID validation on session_id** (v1.4) | API now rejects non-UUID session IDs. Ensure clients use the UUID format returned by the system. |
+| **`from fastapi.responses import FileResponse` moved** (v1.4) | Only affects custom API code importing from the wrong location. |
+
+### Quick diff of `.env.example` vs your `.env`
+
+After pulling the latest code, run this to see what new configuration parameters are available:
+
+```bash
+cd /Projects/idin9-srs
+grep -v '^\s*#' .env.example | grep -v '^\s*$' | cut -d= -f1 | while read key; do
+  grep -q "^${key}=" .env 2>/dev/null || echo "MISSING: $key"
+done
+```
+
+Any parameter shown as `MISSING` can be added to your `.env` with its default value from `.env.example`.
+
+---
 
 ## สารบัญ
 
@@ -1005,6 +1071,47 @@ pip install -r requirements.txt
 WHISPER_DEVICE=cuda
 WHISPER_COMPUTE_TYPE=float16
 ```
+
+---
+
+## ขั้นตอนการอัปเกรด
+
+### ขั้นตอนทั่วไป
+
+```bash
+# 1. ดึงโค้ดล่าสุด
+cd /Projects/idin9-srs
+git pull origin main
+
+# 2. อัปเดต dependencies
+source venv/bin/activate
+pip install --upgrade -r requirements.txt
+
+# 3. ตรวจสอบการตั้งค่าใหม่ใน .env.example เทียบกับ .env ของคุณ
+diff .env .env.example
+
+# 4. รีสตาร์ท service
+sudo systemctl restart idin9-srs
+# หรือถ้ารันด้วย python โดยตรง:
+# python run.py
+```
+
+### หมายเหตุการอัปเกรดข้ามเวอร์ชัน
+
+#### อัปเกรดจาก v1.0 / v1.1 / v1.2
+
+| การเปลี่ยนแปลง | การดำเนินการ |
+|----------------|-------------|
+| **เพิ่ม External AI providers** (v1.2+) | เพิ่มใน `.env`: `TRANSCRIPTION_PROVIDER`, `SENTIMENT_PROVIDER`, `TRANSCRIPTION_API_KEY`, `TRANSCRIPTION_API_URL`, `TRANSCRIPTION_API_MODEL`, `SENTIMENT_API_KEY`, `SENTIMENT_API_URL`, `SENTIMENT_API_MODEL` |
+| **API key authentication** (v1.2+) | เพิ่ม `API_KEY=` ใน `.env` |
+| **AI model cache directories** (v1.2+) | เพิ่มใน `.env`: `WHISPER_CACHE_DIR=`, `HF_CACHE_DIR=` |
+
+#### อัปเกรดจาก v1.2 / v1.3
+
+| การเปลี่ยนแปลง | การดำเนินการ |
+|----------------|-------------|
+| **ยกเลิก `POST /record/start`** (v1.4) | ลบสคริปต์ที่เรียก endpoint นี้ |
+| **ตรวจสอบ UUID session_id** (v1.4) | API จะปฏิเสธ session_id ที่ไม่ใช่ UUID |
 
 ---
 
