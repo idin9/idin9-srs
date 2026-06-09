@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     sentiment_mapping: str = '{"negative":8.0, "neutral":1.0, "positive":1.0}'
     hf_cache_dir: str = ""
 
+    # ── Feature Toggles ──────────────────────────────────
+    transcription_enabled: bool = True
+    sentiment_enabled: bool = True
+
     # ── Retention ───────────────────────────────────────
     retention_years: int = 7
     index_db: str = "index.db"

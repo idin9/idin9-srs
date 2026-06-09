@@ -63,6 +63,7 @@ function switchTab(tab) {
 
   if (tab === 'admin') loadAdminConfig();
   if (tab === 'auditor') searchRecordings();
+  if (tab === 'console') initConsoleTab();
 }
 
 // ============ AUDITOR ============
@@ -233,11 +234,18 @@ function populateAdminForm(config) {
     'sentiment_provider', 'sentiment_api_key', 'sentiment_api_url', 'sentiment_api_model',
     'sentiment_model', 'hf_cache_dir',
     'output_dir', 'index_db', 'retention_years',
+    'transcription_enabled', 'sentiment_enabled',
   ];
 
   fields.forEach(name => {
     const el = document.querySelector(`[name="${name}"]`);
-    if (el && config[name] !== undefined) el.value = String(config[name]);
+    if (el && config[name] !== undefined) {
+      if (el.type === 'checkbox') {
+        el.checked = Boolean(config[name]);
+      } else {
+        el.value = String(config[name]);
+      }
+    }
   });
 
   const modelEl = document.querySelector('[name="whisper_model_size"]');
@@ -287,6 +295,8 @@ async function saveSettings(event) {
     sentiment_model: document.querySelector('[name="sentiment_model"]').value.trim(),
     sentiment_mapping: mappingParsed,
     hf_cache_dir: document.querySelector('[name="hf_cache_dir"]').value.trim(),
+    transcription_enabled: document.querySelector('[name="transcription_enabled"]').checked,
+    sentiment_enabled: document.querySelector('[name="sentiment_enabled"]').checked,
     retention_years: parseInt(document.querySelector('[name="retention_years"]').value) || 7,
     output_dir: document.querySelector('[name="output_dir"]').value,
   };
@@ -354,4 +364,83 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+// ============ LIVE CONSOLE ============
+let logsInterval = null;
+
+function initConsoleTab() {
+  fetchLiveSessions();
+  fetchLiveLogs();
+  if (document.getElementById('auto-refresh-logs').checked) {
+    startLogsPolling();
+  }
+}
+
+async function fetchLiveSessions() {
+  const tbody = document.getElementById('live-sessions-body');
+  try {
+    const res = await apiFetch(`${API_BASE}/sessions`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const sessions = await res.json();
+    
+    if (sessions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">No active sessions</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = sessions.map(s => {
+      return `<tr>
+        <td>${escapeHtml(s.session_id)}</td>
+        <td>${escapeHtml(s.caller || '-')}</td>
+        <td>${escapeHtml(s.callee || '-')}</td>
+        <td>${escapeHtml(s.state)}</td>
+        <td>${formatDateTime(s.start_time)}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">Error: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function fetchLiveLogs() {
+  const container = document.getElementById('live-logs-container');
+  try {
+    const res = await apiFetch(`${API_BASE}/logs`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.logs && data.logs.length > 0) {
+      container.textContent = data.logs.join('');
+    } else {
+      container.textContent = 'No logs available yet...';
+    }
+    // Auto-scroll to bottom
+    container.scrollTop = container.scrollHeight;
+  } catch (err) {
+    container.textContent = `Error fetching logs: ${err.message}`;
+  }
+}
+
+function startLogsPolling() {
+  if (logsInterval) clearInterval(logsInterval);
+  logsInterval = setInterval(() => {
+    fetchLiveSessions();
+    fetchLiveLogs();
+  }, 2000); // refresh every 2 seconds
+}
+
+function stopLogsPolling() {
+  if (logsInterval) {
+    clearInterval(logsInterval);
+    logsInterval = null;
+  }
+}
+
+function toggleLogRefresh() {
+  const isChecked = document.getElementById('auto-refresh-logs').checked;
+  if (isChecked) {
+    startLogsPolling();
+  } else {
+    stopLogsPolling();
+  }
 }

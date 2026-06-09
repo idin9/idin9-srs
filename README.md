@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**Version:** 1.4.0  |
+**Version:** 26.06.01  |
 **Author:** Kanit Klai-Udom  |
 **Contact:** [www.idin9.com](https://www.idin9.com)  
 **Author:** Kanit Klai-Udom  
@@ -537,14 +537,16 @@ sudo systemctl restart idin9-srs
 | **File rename** — `scripts/siprec.service` → `scripts/idin9-srs.service` (v1.3) | Remove old service: `sudo systemctl stop siprec && sudo rm /etc/systemd/system/siprec.service`. Install new one: `sudo cp scripts/idin9-srs.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now idin9-srs`. |
 | **Log file rename** — `/var/log/siprec-cleanup.log` → `/var/log/idin9-srs-cleanup.log` (v1.3) | Update cron job path if you use one. |
 
-#### Upgrading from v1.2 / v1.3
+#### Upgrading from v1.2 / v1.3 / 26.06.00
 
 | Change | Action Required |
 |--------|----------------|
-| **Admin UI supports AI provider config** (v1.4) | Frontend auto-updates; no action needed. Go to the Administrator tab to see new fields. |
-| **Removed `POST /record/start`** (v1.4) | Remove any scripts calling this deprecated endpoint. Sessions are created only by SIP INVITE. |
-| **UUID validation on session_id** (v1.4) | API now rejects non-UUID session IDs. Ensure clients use the UUID format returned by the system. |
-| **`from fastapi.responses import FileResponse` moved** (v1.4) | Only affects custom API code importing from the wrong location. |
+| **Admin UI supports AI provider config** (26.06.00) | Frontend auto-updates; no action needed. Go to the Administrator tab to see new fields. |
+| **Removed `POST /record/start`** (26.06.00) | Remove any scripts calling this deprecated endpoint. Sessions are created only by SIP INVITE. |
+| **UUID validation on session_id** (26.06.00) | API now rejects non-UUID session IDs. Ensure clients use the UUID format returned by the system. |
+| **`from fastapi.responses import FileResponse` moved** (26.06.00) | Only affects custom API code importing from the wrong location. |
+| **Version format changed** (26.06.01) | Version now uses `year.month.revision` format (e.g., 26.06.01). |
+| **Feature toggles for transcript/sentiment** (26.06.01) | Add `TRANSCRIPTION_ENABLED=true` and `SENTIMENT_ENABLED=true` to `.env`. Default is `true` (no change in behavior). Toggle via Admin UI or `.env`. |
 
 ### Quick diff of `.env.example` vs your `.env`
 
@@ -1106,12 +1108,13 @@ sudo systemctl restart idin9-srs
 | **API key authentication** (v1.2+) | เพิ่ม `API_KEY=` ใน `.env` |
 | **AI model cache directories** (v1.2+) | เพิ่มใน `.env`: `WHISPER_CACHE_DIR=`, `HF_CACHE_DIR=` |
 
-#### อัปเกรดจาก v1.2 / v1.3
+#### อัปเกรดจาก v1.2 / v1.3 / 26.06.00
 
 | การเปลี่ยนแปลง | การดำเนินการ |
 |----------------|-------------|
-| **ยกเลิก `POST /record/start`** (v1.4) | ลบสคริปต์ที่เรียก endpoint นี้ |
-| **ตรวจสอบ UUID session_id** (v1.4) | API จะปฏิเสธ session_id ที่ไม่ใช่ UUID |
+| **ยกเลิก `POST /record/start`** (26.06.00) | ลบสคริปต์ที่เรียก endpoint นี้ |
+| **ตรวจสอบ UUID session_id** (26.06.00) | API จะปฏิเสธ session_id ที่ไม่ใช่ UUID |
+| **เพิ่ม toggle ปิด/เปิด transcript และ sentiment** (26.06.01) | เพิ่ม `TRANSCRIPTION_ENABLED=true` และ `SENTIMENT_ENABLED=true` ใน `.env` |
 
 ---
 

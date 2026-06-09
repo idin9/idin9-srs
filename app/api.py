@@ -127,7 +127,7 @@ def create_router():
 
         raise HTTPException(404, detail=f"Audio file for session {session_id} not found")
 
-    # ===================== SESSIONS =====================
+    # ===================== SESSIONS & LOGS =====================
 
     @router.get(
         "/sessions",
@@ -137,6 +137,14 @@ def create_router():
     async def list_sessions(request: Request, _auth: bool = Depends(verify_api_key)):
         sm = request.app.state.session_manager
         return sm.list_sessions()
+
+    @router.get(
+        "/logs",
+        summary="Get recent live logs",
+    )
+    async def get_logs(request: Request, _auth: bool = Depends(verify_api_key)):
+        from .main import log_buffer
+        return {"logs": list(log_buffer)}
 
     # ===================== RECORDINGS SEARCH =====================
 
@@ -206,6 +214,8 @@ def create_router():
             "sentiment_model": cfg.sentiment_model,
             "sentiment_mapping": mapping_raw,
             "hf_cache_dir": cfg.hf_cache_dir,
+            "transcription_enabled": cfg.transcription_enabled,
+            "sentiment_enabled": cfg.sentiment_enabled,
             "retention_years": cfg.retention_years,
             "index_db": cfg.index_db,
         }
@@ -234,6 +244,8 @@ def create_router():
             "whisper_compute_type",
             "whisper_cache_dir",
             "sentiment_model",
+            "transcription_enabled",
+            "sentiment_enabled",
             "sentiment_mapping",
             "hf_cache_dir",
             "retention_years",
@@ -311,7 +323,7 @@ def create_router():
     async def public_info():
         return {
             "service": "idin9-srs",
-            "version": "1.4.0",
+            "version": "26.06.01",
             "auth_required": bool(settings.api_key),
         }
 

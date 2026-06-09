@@ -16,6 +16,7 @@
   <nav class="tabs">
     <button class="tab-btn active" data-tab="auditor" onclick="switchTab('auditor')">Auditor</button>
     <button class="tab-btn" data-tab="admin" onclick="switchTab('admin')">Administrator</button>
+    <button class="tab-btn" data-tab="console" onclick="switchTab('console')">Live Console</button>
   </nav>
 
   <!-- ============ AUDITOR TAB ============ -->
@@ -183,6 +184,14 @@
           <label>Local Cache Dir</label>
           <input type="text" name="whisper_cache_dir" placeholder="Leave empty for default directory (~/.cache/whisper)">
         </div>
+        <div class="config-row">
+          <label>Enable Transcription</label>
+          <label class="switch">
+            <input type="checkbox" name="transcription_enabled" checked>
+            <span class="slider"></span>
+          </label>
+          <span class="hint">Uncheck to record voice only (no speech-to-text)</span>
+        </div>
       </div>
 
       <div class="config-section">
@@ -226,6 +235,14 @@
           <textarea name="sentiment_mapping" rows="4" style="font-family:monospace"></textarea>
           <span class="hint">JSON: {"emotion": score, ...}</span>
         </div>
+        <div class="config-row">
+          <label>Enable Sentiment</label>
+          <label class="switch">
+            <input type="checkbox" name="sentiment_enabled" checked>
+            <span class="slider"></span>
+          </label>
+          <span class="hint">Uncheck to disable emotion analysis (score always 1.0)</span>
+        </div>
       </div>
 
       <div class="config-section">
@@ -260,8 +277,53 @@
     </div>
   </section>
 
+  <!-- ============ LIVE CONSOLE TAB ============ -->
+  <section id="tab-console" class="tab-content">
+    <h2>Live Console</h2>
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+      
+      <!-- Active Sessions -->
+      <div class="config-section" style="flex: 1; min-width: 300px; margin-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3>Active Sessions</h3>
+          <button class="btn btn-secondary btn-sm" onclick="fetchLiveSessions()">Refresh</button>
+        </div>
+        <div class="table-wrapper" style="margin-top: 10px; max-height: 400px; overflow-y: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Session ID</th>
+                <th>Caller</th>
+                <th>Callee</th>
+                <th>State</th>
+                <th>Start Time</th>
+              </tr>
+            </thead>
+            <tbody id="live-sessions-body">
+              <tr><td colspan="5" class="empty-msg">No active sessions</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Live Logs -->
+      <div class="config-section" style="flex: 2; min-width: 400px; margin-bottom: 0; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3>System Logs</h3>
+          <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 5px;">
+            <input type="checkbox" id="auto-refresh-logs" checked onchange="toggleLogRefresh()"> Auto-refresh
+          </label>
+        </div>
+        <div id="live-logs-container" style="margin-top: 10px; background: #1e1e1e; color: #cfcfcf; font-family: monospace; font-size: 0.85rem; padding: 10px; border-radius: 5px; height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">
+          Loading logs...
+        </div>
+      </div>
+      
+    </div>
+  </section>
+
   <footer>
-    <p>idin9-srs v1.4 &middot; <a href="/docs">API Docs</a></p>
+    <p>idin9-srs v26.06.01 &middot; <a href="/docs">API Docs</a></p>
   </footer>
 </div>
 

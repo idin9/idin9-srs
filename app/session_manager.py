@@ -24,10 +24,14 @@ class SessionManager:
         rtp_host: str,
         rtp_port_range: tuple[int, int],
         loop: asyncio.AbstractEventLoop,
+        transcription_enabled: bool = True,
+        sentiment_enabled: bool = True,
     ):
         self.audio_processor = audio_processor
         self.transcriber = transcriber
         self.sentiment_analyzer = sentiment_analyzer
+        self.transcription_enabled = transcription_enabled
+        self.sentiment_enabled = sentiment_enabled
         self.indexer = indexer
         self.rtp_host = rtp_host
         self.rtp_min_port, self.rtp_max_port = rtp_port_range
@@ -146,24 +150,31 @@ class SessionManager:
 
         wav_path = self.audio_processor.save_wav(session_id)
         if wav_path:
-            transcript = await self.transcriber.transcribe(wav_path)
-            info.transcript = transcript
+            if self.transcription_enabled:
+                transcript = await self.transcriber.transcribe(wav_path)
+                info.transcript = transcript
+                logger.info("Session %s transcription complete (%d chars)", session_id, len(transcript))
+            else:
+                info.transcript = "[transcription disabled]"
 
-            result = await self.sentiment_analyzer.analyze(transcript)
-            info.sentiment_score = result.get("score", 1.0)
-            info.sentiment_label = result.get("label", "neutral")
+            if self.sentiment_enabled and info.transcript and info.transcript != "[transcription disabled]":
+                result = await self.sentiment_analyzer.analyze(info.transcript)
+                info.sentiment_score = result.get("score", 1.0)
+                info.sentiment_label = result.get("label", "neutral")
+                logger.info("Session %s sentiment: %s (%.1f)", session_id, info.sentiment_label, info.sentiment_score)
+            else:
+                info.sentiment_score = 1.0
+                info.sentiment_label = "neutral"
 
         info.state = SessionState.completed
         info.end_time = datetime.utcnow().isoformat()
         logger.info(
-            "Session %s completed: score=%s label=%s",
+            "Session %s completed",
             session_id,
-            info.sentiment_score,
-            info.sentiment_label,
         )
 
         # Store in indexer
-        if wav_path and info.transcript is not None and info.sentiment_score is not None and info.sentiment_label is not None:
+        if wav_path:
             self.indexer.add_recording(
                 session_id=session_id,
                 caller=info.caller,

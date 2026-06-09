@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+from collections import deque
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -18,9 +19,24 @@ from .sip_stack import Idin9SrsServer
 from .api import create_router
 from .indexer import RecordingIndexer
 
+# Create an in-memory log buffer for the web console
+log_buffer = deque(maxlen=500)
+
+class WebConsoleLogHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            log_buffer.append(msg)
+        except Exception:
+            self.handleError(record)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        WebConsoleLogHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -98,6 +114,8 @@ async def lifespan(app: FastAPI):
         rtp_host=settings.rtp_listen_host,
         rtp_port_range=rtp_port_range,
         loop=loop,
+        transcription_enabled=settings.transcription_enabled,
+        sentiment_enabled=settings.sentiment_enabled,
     )
     app.state.session_manager = sm
     app.state.indexer = indexer
@@ -130,7 +148,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="idin9-srs",
         description="SIPREC recording server with sentiment analysis and transcription",
-        version="1.4.0",
+        version="26.06.01",
         lifespan=lifespan,
     )
 
@@ -151,7 +169,7 @@ def create_app() -> FastAPI:
             return HTMLResponse(index_path.read_text())
         return {
             "service": "idin9-srs",
-            "version": "1.4.0",
+            "version": "26.06.01",
             "docs": "/docs",
         }
 
