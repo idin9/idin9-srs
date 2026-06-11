@@ -20,10 +20,10 @@ class Transcriber:
         compute_type: str = "auto",
         cache_dir: Optional[str] = None,
     ):
-        self.provider = provider
-        self.api_key = api_key
-        self.api_url = api_url
-        self.api_model = api_model
+        self._provider = provider
+        self._api_key = api_key
+        self._api_url = api_url
+        self._api_model = api_model
         self.model_size = model_size
         self.device = device
         self.compute_type = compute_type
@@ -32,6 +32,26 @@ class Transcriber:
 
         if cache_dir:
             os.environ["WHISPER_CACHE_DIR"] = cache_dir
+
+    @property
+    def provider(self) -> str:
+        from .config import settings as cfg
+        return cfg.transcription_provider
+
+    @property
+    def api_key(self) -> str:
+        from .config import settings as cfg
+        return cfg.transcription_api_key
+
+    @property
+    def api_url(self) -> str:
+        from .config import settings as cfg
+        return cfg.transcription_api_url
+
+    @property
+    def api_model(self) -> str:
+        from .config import settings as cfg
+        return cfg.transcription_api_model
 
     async def load_model(self):
         if self.provider != "local":

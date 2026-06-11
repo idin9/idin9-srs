@@ -16,17 +16,38 @@ class SentimentAnalyzer:
         model_name: str = "cardiffnlp/twitter-xlm-roberta-base-sentiment",
         sentiment_mapping: Optional[Dict[str, float]] = None,
     ):
-        self.provider = provider
-        self.api_key = api_key
-        self.api_url = api_url
-        self.api_model = api_model
+        self._provider = provider
+        self._api_key = api_key
+        self._api_url = api_url
+        self._api_model = api_model
         self.model_name = model_name
-        self.sentiment_mapping = sentiment_mapping or {
-            "negative": 8.0,
-            "neutral": 1.0,
-            "positive": 1.0,
-        }
+        self._sentiment_mapping = sentiment_mapping
         self._pipeline = None
+
+    @property
+    def provider(self) -> str:
+        from .config import settings as cfg
+        return cfg.sentiment_provider
+
+    @property
+    def api_key(self) -> str:
+        from .config import settings as cfg
+        return cfg.sentiment_api_key
+
+    @property
+    def api_url(self) -> str:
+        from .config import settings as cfg
+        return cfg.sentiment_api_url
+
+    @property
+    def api_model(self) -> str:
+        from .config import settings as cfg
+        return cfg.sentiment_api_model
+
+    @property
+    def sentiment_mapping(self) -> Dict[str, float]:
+        from .config import settings as cfg
+        return cfg.get_sentiment_mapping()
 
     async def load_model(self):
         if self.provider != "local":

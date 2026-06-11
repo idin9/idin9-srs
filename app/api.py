@@ -264,10 +264,17 @@ def create_router():
                 overrides = {}
 
         # Apply allowed fields
+        from .config import settings as cfg
         updated = False
         for key in allowed_fields:
             if key in payload and payload[key] is not None:
-                overrides[key] = payload[key]
+                val = payload[key]
+                if key == "retention_years" and val is not None:
+                    val = int(val)
+                elif key in ("transcription_enabled", "sentiment_enabled") and val is not None:
+                    val = bool(val)
+                overrides[key] = val
+                setattr(cfg, key, val)
                 updated = True
 
         if not updated:

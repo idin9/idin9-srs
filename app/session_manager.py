@@ -30,8 +30,6 @@ class SessionManager:
         self.audio_processor = audio_processor
         self.transcriber = transcriber
         self.sentiment_analyzer = sentiment_analyzer
-        self.transcription_enabled = transcription_enabled
-        self.sentiment_enabled = sentiment_enabled
         self.indexer = indexer
         self.rtp_host = rtp_host
         self.rtp_min_port, self.rtp_max_port = rtp_port_range
@@ -42,6 +40,16 @@ class SessionManager:
         self._next_rtp_port = self.rtp_min_port
         self._rtp_port_lock = threading.Lock()
         self._used_rtp_ports: set[int] = set()
+
+    @property
+    def transcription_enabled(self) -> bool:
+        from .config import settings as cfg
+        return cfg.transcription_enabled
+
+    @property
+    def sentiment_enabled(self) -> bool:
+        from .config import settings as cfg
+        return cfg.sentiment_enabled
 
     def allocate_rtp_port_sync(self) -> int | None:
         with self._rtp_port_lock:
