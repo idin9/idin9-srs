@@ -55,11 +55,24 @@ async function apiFetch(url, options = {}) {
 
 // ============ TAB SWITCHING ============
 function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.remove('active', 'text-white', 'bg-primary');
+    b.classList.add('link-dark');
+  });
+  document.querySelectorAll('.tab-content').forEach(c => {
+    c.style.display = 'none';
+  });
 
-  document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
-  document.getElementById(`tab-${tab}`).classList.add('active');
+  const activeBtn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
+  if (activeBtn) {
+    activeBtn.classList.add('active', 'text-white', 'bg-primary');
+    activeBtn.classList.remove('link-dark');
+  }
+  
+  const activeTab = document.getElementById(`tab-${tab}`);
+  if (activeTab) {
+    activeTab.style.display = 'block';
+  }
 
   if (tab === 'admin') loadAdminConfig();
   if (tab === 'auditor') searchRecordings();
