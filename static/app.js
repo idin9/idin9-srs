@@ -423,7 +423,7 @@ async function fetchLiveLogs() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data.logs && data.logs.length > 0) {
-      container.textContent = data.logs.join('');
+      container.textContent = data.logs.join('\n');
     } else {
       container.textContent = 'No logs available yet...';
     }

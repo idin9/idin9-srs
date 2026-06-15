@@ -152,6 +152,8 @@ class SessionManager:
             rtp_session = self._rtp_sessions.pop(key, None)
             if rtp_session:
                 rtp_session.stop()
+                with self._rtp_port_lock:
+                    self._used_rtp_ports.discard(rtp_session.local_port)
 
         duration = self.audio_processor.get_audio_duration(session_id)
         logger.info("Session %s recorded %s seconds", session_id, duration)
@@ -208,5 +210,9 @@ class SessionManager:
         self._sessions.pop(session_id, None)
         keys = [k for k in self._rtp_sessions if k[0] == session_id]
         for key in keys:
-            self._rtp_sessions.pop(key, None)
+            rtp_session = self._rtp_sessions.pop(key, None)
+            if rtp_session:
+                rtp_session.stop()
+                with self._rtp_port_lock:
+                    self._used_rtp_ports.discard(rtp_session.local_port)
         self.audio_processor.clear(session_id)

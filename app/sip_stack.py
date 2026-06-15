@@ -133,11 +133,13 @@ class Idin9SrsServer:
         rtp_port_allocator,
         on_new_session_callback,
         loop: asyncio.AbstractEventLoop,
+        on_end_session_callback=None,
     ):
         self.host = host
         self.port = port
         self.rtp_port_allocator = rtp_port_allocator
         self.on_new_session = on_new_session_callback
+        self.on_end_session = on_end_session_callback
         self.loop = loop
         self.transport: Optional[asyncio.DatagramTransport] = None
         self.server_ip = host if host != "0.0.0.0" else "127.0.0.1"
@@ -255,6 +257,8 @@ class Idin9SrsServer:
         )
         self.transport.sendto(response, addr)
         logger.info("Session %s ended via BYE", call_id)
+        if self.on_end_session:
+            await self.on_end_session(call_id)
 
 
 class Idin9SrsProtocol(asyncio.DatagramProtocol):

@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**Version:** 26.06.01  |
+**Version:** 26.06.02  |
 **Author:** Kanit Klai-Udom  |
 **Contact:** [www.idin9.com](https://www.idin9.com)  
 **License:** MIT
@@ -535,10 +535,13 @@ sudo systemctl restart idin9-srs
 | **File rename** — `scripts/siprec.service` → `scripts/idin9-srs.service` (v1.3) | Remove old service: `sudo systemctl stop siprec && sudo rm /etc/systemd/system/siprec.service`. Install new one: `sudo cp scripts/idin9-srs.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now idin9-srs`. |
 | **Log file rename** — `/var/log/siprec-cleanup.log` → `/var/log/idin9-srs-cleanup.log` (v1.3) | Update cron job path if you use one. |
 
-#### Upgrading from v1.2 / v1.3 / 26.06.00
+#### Upgrading from v1.2 / v1.3 / 26.06.01
 
 | Change | Action Required |
 |--------|----------------|
+| **Fixed live console log formatting** (26.06.02) | Frontend logs are now formatted with correct newline boundaries. |
+| **Fixed SIP BYE ending callback** (26.06.02) | Recording sessions are now correctly stopped and finalized automatically upon SIP BYE termination. |
+| **Fixed RTP port allocation leak** (26.06.02) | Allocated ports are properly returned to the port pool upon session completion or cleanup. |
 | **Admin UI supports AI provider config** (26.06.00) | Frontend auto-updates; no action needed. Go to the Administrator tab to see new fields. |
 | **Removed `POST /record/start`** (26.06.00) | Remove any scripts calling this deprecated endpoint. Sessions are created only by SIP INVITE. |
 | **UUID validation on session_id** (26.06.00) | API now rejects non-UUID session IDs. Ensure clients use the UUID format returned by the system. |

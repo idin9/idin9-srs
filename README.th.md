@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**เวอร์ชัน:** 26.06.01  |
+**เวอร์ชัน:** 26.06.02  |
 **ผู้พัฒนา:** Kanit Klai-Udom  |
 **ติดต่อ:** [www.idin9.com](https://www.idin9.com)  
 **ลิขสิทธิ์:** MIT
@@ -563,10 +563,13 @@ sudo systemctl restart idin9-srs
 | **API key authentication** (v1.2+) | เพิ่ม `API_KEY=` ใน `.env` |
 | **AI model cache directories** (v1.2+) | เพิ่มใน `.env`: `WHISPER_CACHE_DIR=`, `HF_CACHE_DIR=` |
 
-#### อัปเกรดจาก v1.2 / v1.3 / 26.06.00
+#### อัปเกรดจาก v1.2 / v1.3 / 26.06.01
 
 | การเปลี่ยนแปลง | การดำเนินการ |
 |----------------|-------------|
+| **แก้ไขการแสดงผล live console logs** (26.06.02) | แสดงผลบรรทัดข้อความ log บนหน้าเว็บอย่างถูกต้อง |
+| **แก้ไข callback การจบสายด้วย SIP BYE** (26.06.02) | รองรับการหยุดบันทึกและรันขั้นตอนการถอดความและวิเคราะห์อารมณ์ทันทีเมื่อคู่สายวางสาย (SIP BYE) |
+| **แก้ไขปัญหาพอร์ต RTP รั่วไหล** (26.06.02) | คืนค่า local port ให้กับ port pool เสมอเมื่อจบสายหรือมีการทำลาย session |
 | **ยกเลิก `POST /record/start`** (26.06.00) | ลบสคริปต์ที่เรียก endpoint นี้ |
 | **ตรวจสอบ UUID session_id** (26.06.00) | API จะปฏิเสธ session_id ที่ไม่ใช่ UUID |
 | **เพิ่ม toggle ปิด/เปิด transcript และ sentiment** (26.06.01) | เพิ่ม `TRANSCRIPTION_ENABLED=true` และ `SENTIMENT_ENABLED=true` ใน `.env` |
