@@ -248,6 +248,7 @@ function populateAdminForm(config) {
     'sentiment_model', 'hf_cache_dir',
     'output_dir', 'index_db', 'retention_years',
     'transcription_enabled', 'sentiment_enabled',
+    'audio_format', 'encryption_enabled', 'encryption_password',
   ];
 
   fields.forEach(name => {
@@ -312,6 +313,9 @@ async function saveSettings(event) {
     sentiment_enabled: document.querySelector('[name="sentiment_enabled"]').checked,
     retention_years: parseInt(document.querySelector('[name="retention_years"]').value) || 7,
     output_dir: document.querySelector('[name="output_dir"]').value,
+    audio_format: document.querySelector('[name="audio_format"]').value,
+    encryption_enabled: document.querySelector('[name="encryption_enabled"]').checked,
+    encryption_password: document.querySelector('[name="encryption_password"]').value.trim(),
   };
 
   try {

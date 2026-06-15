@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**Version:** 26.06.02  |
+**Version:** 26.06.03  |
 **Author:** Kanit Klai-Udom  |
 **Contact:** [www.idin9.com](https://www.idin9.com)  
 **License:** MIT
@@ -112,6 +112,7 @@ AudioCodes Mediant SBC (SRC)
 | Dependency | Minimum Version | Recommended |
 |-----------|----------------|-------------|
 | Python | 3.10 | 3.12 |
+| ffmpeg | 4.x | 5.x+ (Required for Opus compression) |
 | RAM | 4 GB (tiny model) | 16 GB (medium/large) |
 | Disk | 10 GB | 50 GB+ |
 | OS | Linux (Ubuntu 22.04+, Debian 12+, CentOS 9+) | Ubuntu 24.04 |
@@ -121,6 +122,10 @@ AudioCodes Mediant SBC (SRC)
 #### 2. Installation
 
 ```bash
+# Install system-level dependencies (ffmpeg)
+# On Ubuntu/Debian:
+sudo apt update && sudo apt install -y ffmpeg
+
 cd /Projects/idin9-srs
 
 # Create virtual environment
@@ -535,10 +540,12 @@ sudo systemctl restart idin9-srs
 | **File rename** — `scripts/siprec.service` → `scripts/idin9-srs.service` (v1.3) | Remove old service: `sudo systemctl stop siprec && sudo rm /etc/systemd/system/siprec.service`. Install new one: `sudo cp scripts/idin9-srs.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now idin9-srs`. |
 | **Log file rename** — `/var/log/siprec-cleanup.log` → `/var/log/idin9-srs-cleanup.log` (v1.3) | Update cron job path if you use one. |
 
-#### Upgrading from v1.2 / v1.3 / 26.06.01
+#### Upgrading from v1.2 / v1.3 / 26.06.02
 
 | Change | Action Required |
 |--------|----------------|
+| **Add OPUS Audio Format support** (26.06.03) | Select Ogg/Opus format inside the Administrator settings card to compress audio utilizing system `ffmpeg`. |
+| **AES-256 At-Rest Encryption & On-The-Fly Decryption** (26.06.03) | Toggle AES-256 file encryption at rest inside settings. On-the-fly decryption is handled seamlessly in-memory when playing back or downloading. |
 | **Fixed live console log formatting** (26.06.02) | Frontend logs are now formatted with correct newline boundaries. |
 | **Fixed SIP BYE ending callback** (26.06.02) | Recording sessions are now correctly stopped and finalized automatically upon SIP BYE termination. |
 | **Fixed RTP port allocation leak** (26.06.02) | Allocated ports are properly returned to the port pool upon session completion or cleanup. |

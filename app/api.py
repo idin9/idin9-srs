@@ -101,31 +101,65 @@ def create_router():
         responses={404: {"description": "Audio file not found"}},
     )
     async def get_audio_file(session_id: str, request: Request, _auth: bool = Depends(verify_api_key)):
-        """Stream the WAV audio file for playback or download."""
+        """Stream the audio file for playback or download. Decrypts on-the-fly if encrypted."""
         _validate_uuid(session_id)
         indexer = request.app.state.indexer
         record = indexer.get_recording(session_id)
+        
+        file_path = None
         if record and record.get("wav_path") and os.path.exists(record["wav_path"]):
-            resolved = os.path.abspath(record["wav_path"])
+            file_path = record["wav_path"]
+            
+        # Fallback to scanning disk if not in database
+        if not file_path:
+            from .config import settings
+            output_abs = os.path.abspath(settings.output_dir)
+            for ext in [".wav", ".opus", ".wav.enc", ".opus.enc"]:
+                candidate = os.path.normpath(os.path.join(output_abs, f"{session_id}{ext}"))
+                if candidate.startswith(output_abs) and os.path.exists(candidate):
+                    file_path = candidate
+                    break
+                    
+        if not file_path:
+            raise HTTPException(404, detail=f"Audio file for session {session_id} not found")
+            
+        resolved = os.path.abspath(file_path)
+        
+        # Determine format/mimetype and whether it is encrypted
+        is_encrypted = resolved.endswith(".enc")
+        is_opus = ".opus" in resolved
+        
+        media_type = "audio/ogg" if is_opus else "audio/wav"
+        ext = ".opus" if is_opus else ".wav"
+        filename = f"{session_id}{ext}"
+        
+        if is_encrypted:
+            from .config import settings
+            from .audio_processor import decrypt_file
+            import io
+            from fastapi.responses import StreamingResponse
+            
+            password = settings.encryption_password or "idin9-srs-default-pass"
+            try:
+                decrypted_bytes = decrypt_file(resolved, password)
+                return StreamingResponse(
+                    io.BytesIO(decrypted_bytes),
+                    media_type=media_type,
+                    headers={
+                        "Content-Disposition": f'inline; filename="{filename}"',
+                        "Accept-Ranges": "bytes",
+                        "Content-Length": str(len(decrypted_bytes))
+                    }
+                )
+            except Exception as e:
+                raise HTTPException(500, detail=f"Failed to decrypt audio: {e}")
+        else:
             return FileResponse(
                 resolved,
-                media_type="audio/wav",
-                filename=f"{session_id}.wav",
+                media_type=media_type,
+                filename=filename,
                 headers={"Accept-Ranges": "bytes"},
             )
-
-        from .config import settings
-        output_abs = os.path.abspath(settings.output_dir)
-        wav_path = os.path.normpath(os.path.join(output_abs, f"{session_id}.wav"))
-        if wav_path.startswith(output_abs) and os.path.exists(wav_path):
-            return FileResponse(
-                wav_path,
-                media_type="audio/wav",
-                filename=f"{session_id}.wav",
-                headers={"Accept-Ranges": "bytes"},
-            )
-
-        raise HTTPException(404, detail=f"Audio file for session {session_id} not found")
 
     # ===================== SESSIONS & LOGS =====================
 
@@ -218,6 +252,9 @@ def create_router():
             "sentiment_enabled": cfg.sentiment_enabled,
             "retention_years": cfg.retention_years,
             "index_db": cfg.index_db,
+            "audio_format": cfg.audio_format,
+            "encryption_enabled": cfg.encryption_enabled,
+            "encryption_password": cfg.encryption_password,
         }
 
     @router.put(
@@ -250,6 +287,9 @@ def create_router():
             "hf_cache_dir",
             "retention_years",
             "output_dir",
+            "audio_format",
+            "encryption_enabled",
+            "encryption_password",
         }
 
         project_root = Path(__file__).parent.parent
@@ -271,7 +311,7 @@ def create_router():
                 val = payload[key]
                 if key == "retention_years" and val is not None:
                     val = int(val)
-                elif key in ("transcription_enabled", "sentiment_enabled") and val is not None:
+                elif key in ("transcription_enabled", "sentiment_enabled", "encryption_enabled") and val is not None:
                     val = bool(val)
                 overrides[key] = val
                 setattr(cfg, key, val)
@@ -330,7 +370,7 @@ def create_router():
     async def public_info():
         return {
             "service": "idin9-srs",
-            "version": "26.06.02",
+            "version": "26.06.03",
             "auth_required": bool(settings.api_key),
         }
 

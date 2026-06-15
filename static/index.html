@@ -141,7 +141,7 @@
     
     <hr>
     <div class="footer text-muted small">
-      <p class="mb-1">idin9-srs v26.06.02</p>
+      <p class="mb-1">idin9-srs v26.06.03</p>
       <a href="/docs" target="_blank" class="text-decoration-none"><i class="bi bi-book me-1"></i>API Docs</a>
     </div>
   </aside>
@@ -320,6 +320,34 @@
                   <label class="form-label text-muted small mb-1">Retention (years)</label>
                   <input type="number" name="retention_years" class="form-control" min="0" max="99">
                   <span class="form-text text-muted small">0 = keep indefinitely</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- File Management & Security Card -->
+            <div class="card shadow-sm mb-4">
+              <div class="card-header bg-white py-3">
+                <h5 class="card-title mb-0 text-secondary fw-semibold"><i class="bi bi-shield-lock me-2"></i>File Management &amp; Security</h5>
+              </div>
+              <div class="card-body d-flex flex-column gap-3">
+                <div>
+                  <label class="form-label text-muted small mb-1">Audio Format</label>
+                  <select name="audio_format" class="form-select">
+                    <option value="wav">WAV (Uncompressed)</option>
+                    <option value="opus">OPUS (Compressed via ffmpeg)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label text-muted small mb-1">AES-256 Encryption</label>
+                  <div class="form-check form-switch mt-1">
+                    <input class="form-check-input" type="checkbox" id="encryption_enabled" name="encryption_enabled">
+                    <label class="form-check-label text-muted small" for="encryption_enabled">Encrypt recording files at rest (.enc)</label>
+                  </div>
+                </div>
+                <div>
+                  <label class="form-label text-muted small mb-1">Encryption Password</label>
+                  <input type="password" name="encryption_password" class="form-control" placeholder="Enter password to secure files">
+                  <span class="form-text text-muted small">Required for encryption/decryption on-the-fly</span>
                 </div>
               </div>
             </div>

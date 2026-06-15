@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # Leave empty to disable authentication (no API key required).
     api_key: str = ""
     output_dir: str = "recordings"
+    audio_format: str = "wav"  # "wav" or "opus"
+    encryption_enabled: bool = False
+    encryption_password: str = ""
 
     # ── Transcription Provider ─────────────────────────
     #   local     - faster-whisper (default, runs locally)

@@ -159,6 +159,7 @@ class SessionManager:
         logger.info("Session %s recorded %s seconds", session_id, duration)
 
         wav_path = self.audio_processor.save_wav(session_id)
+        final_path = None
         if wav_path:
             if self.transcription_enabled:
                 transcript = await self.transcriber.transcribe(wav_path)
@@ -176,6 +177,9 @@ class SessionManager:
                 info.sentiment_score = 1.0
                 info.sentiment_label = "neutral"
 
+            # Run audio post-processing (Opus conversion and encryption)
+            final_path = self.audio_processor.process_final_audio(session_id, wav_path)
+
         info.state = SessionState.completed
         info.end_time = datetime.utcnow().isoformat()
         logger.info(
@@ -184,14 +188,14 @@ class SessionManager:
         )
 
         # Store in indexer
-        if wav_path:
+        if final_path:
             self.indexer.add_recording(
                 session_id=session_id,
                 caller=info.caller,
                 callee=info.callee,
                 start_time=info.start_time,
                 end_time=info.end_time,
-                wav_path=wav_path,
+                wav_path=final_path,
                 duration=duration,
                 sentiment_score=info.sentiment_score,
                 sentiment_label=info.sentiment_label,

@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**เวอร์ชัน:** 26.06.02  |
+**เวอร์ชัน:** 26.06.03  |
 **ผู้พัฒนา:** Kanit Klai-Udom  |
 **ติดต่อ:** [www.idin9.com](https://www.idin9.com)  
 **ลิขสิทธิ์:** MIT
@@ -102,19 +102,27 @@ AudioCodes SBC
 ### Software
 - **OS**: Linux (Ubuntu 22.04+, Debian 12+), macOS, หรือ Windows WSL2
 - **Python**: 3.10 ขึ้นไป
+- **ffmpeg**: แนะนำ version 5.x ขึ้นไป (จำเป็นสำหรับการบีบอัดเสียงแบบ Opus)
 - **CUDA** (optional): สำหรับเร่งความเร็ว Whisper ด้วย GPU
 
 ---
 
 ## การติดตั้ง
 
-### 1. โคลนโปรเจกต์
+### 1. ติดตั้ง ffmpeg (System-level dependency)
+
+```bash
+# สำหรับ Ubuntu / Debian:
+sudo apt update && sudo apt install -y ffmpeg
+```
+
+### 2. โคลนโปรเจกต์
 
 ```bash
 cd /Projects/idin9-srs
 ```
 
-### 2. สร้าง Virtual Environment
+### 3. สร้าง Virtual Environment
 
 ```bash
 python3 -m venv venv
@@ -122,7 +130,7 @@ source venv/bin/activate   # Linux/macOS
 # venv\Scripts\activate    # Windows
 ```
 
-### 3. ติดตั้ง Dependencies
+### 4. ติดตั้ง Dependencies
 
 ```bash
 pip install --upgrade pip
@@ -136,7 +144,7 @@ pip install torch==2.1.0+cu121 --index-url https://download.pytorch.org/whl/cu12
 pip install -r requirements.txt
 ```
 
-### 4. ตั้งค่า Configuration
+### 5. ตั้งค่า Configuration
 
 ```bash
 cp .env.example .env
@@ -563,10 +571,12 @@ sudo systemctl restart idin9-srs
 | **API key authentication** (v1.2+) | เพิ่ม `API_KEY=` ใน `.env` |
 | **AI model cache directories** (v1.2+) | เพิ่มใน `.env`: `WHISPER_CACHE_DIR=`, `HF_CACHE_DIR=` |
 
-#### อัปเกรดจาก v1.2 / v1.3 / 26.06.01
+#### อัปเกรดจาก v1.2 / v1.3 / 26.06.02
 
 | การเปลี่ยนแปลง | การดำเนินการ |
 |----------------|-------------|
+| **รองรับฟอร์แมตเสียงแบบ OPUS** (26.06.03) | เลือกบันทึกเสียงแบบ Ogg/Opus ในการตั้งค่าของผู้ดูแลระบบเพื่อประหยัดพื้นที่จัดเก็บเสียงโดยใช้ ffmpeg |
+| **การเข้ารหัสไฟล์เสียง AES-256 (At-rest Encryption)** (26.06.03) | เปิดใช้ระบบเข้ารหัสไฟล์เสียงบันทึกด้วยคีย์ลับ และทำการถอดรหัสในหน่วยความจำทันทีแบบ on-the-fly เมื่อมีการกดฟังหรือดาวน์โหลดผ่านเว็บเบราว์เซอร์ |
 | **แก้ไขการแสดงผล live console logs** (26.06.02) | แสดงผลบรรทัดข้อความ log บนหน้าเว็บอย่างถูกต้อง |
 | **แก้ไข callback การจบสายด้วย SIP BYE** (26.06.02) | รองรับการหยุดบันทึกและรันขั้นตอนการถอดความและวิเคราะห์อารมณ์ทันทีเมื่อคู่สายวางสาย (SIP BYE) |
 | **แก้ไขปัญหาพอร์ต RTP รั่วไหล** (26.06.02) | คืนค่า local port ให้กับ port pool เสมอเมื่อจบสายหรือมีการทำลาย session |

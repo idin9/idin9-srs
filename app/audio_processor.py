@@ -204,6 +204,116 @@ class AudioProcessor:
             return filepath
         return None
 
+    def process_final_audio(self, session_id: str, wav_path: str) -> str:
+        """
+        Convert WAV to OPUS if format is set to 'opus' and encrypt if enabled.
+        Returns the final saved file path.
+        """
+        from .config import settings
+        
+        target_path = wav_path
+        
+        # 1. Convert to OPUS if requested
+        if settings.audio_format == "opus":
+            opus_path = convert_wav_to_opus(wav_path)
+            if opus_path and os.path.exists(opus_path):
+                target_path = opus_path
+                # Delete the original WAV file
+                try:
+                    os.remove(wav_path)
+                except OSError as e:
+                    logger.warning("Failed to remove temporary WAV file %s: %s", wav_path, e)
+            else:
+                logger.warning("Conversion to OPUS failed, falling back to WAV")
+                
+        # 2. Encrypt if enabled
+        if settings.encryption_enabled:
+            password = settings.encryption_password or "idin9-srs-default-pass"
+            enc_path = target_path + ".enc"
+            try:
+                encrypt_file(target_path, enc_path, password)
+                # Delete the unencrypted target file
+                try:
+                    os.remove(target_path)
+                except OSError as e:
+                    logger.warning("Failed to remove unencrypted file %s: %s", target_path, e)
+                target_path = enc_path
+                logger.info("Successfully encrypted audio for session %s -> %s", session_id, enc_path)
+            except Exception as e:
+                logger.error("Encryption failed for session %s: %s", session_id, e)
+                
+        return target_path
+
     def clear(self, session_id: str):
         self._buffers.pop(session_id, None)
         self._sample_counts.pop(session_id, None)
+
+
+def convert_wav_to_opus(wav_path: str) -> Optional[str]:
+    import subprocess
+    opus_path = wav_path.replace(".wav", ".opus")
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", wav_path,
+        "-c:a", "libopus",
+        "-b:a", "64k",
+        opus_path
+    ]
+    try:
+        logger.info("Converting %s to OPUS...", wav_path)
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        return opus_path
+    except subprocess.CalledProcessError as e:
+        logger.error("Failed to convert WAV to OPUS: %s", e.stderr.decode(errors="replace"))
+        return None
+    except FileNotFoundError:
+        logger.error("ffmpeg command not found on the system. Please install ffmpeg.")
+        return None
+
+
+def encrypt_file(in_path: str, out_path: str, password: str):
+    import base64
+    import os
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    from cryptography.fernet import Fernet
+    
+    with open(in_path, "rb") as f:
+        data = f.read()
+        
+    salt = os.urandom(16)
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+    fernet = Fernet(key)
+    encrypted_data = fernet.encrypt(data)
+    
+    with open(out_path, "wb") as f:
+        f.write(salt + encrypted_data)
+
+
+def decrypt_file(in_path: str, password: str) -> bytes:
+    import base64
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    from cryptography.fernet import Fernet
+    
+    with open(in_path, "rb") as f:
+        data = f.read()
+        
+    salt = data[:16]
+    encrypted_data = data[16:]
+    
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+    fernet = Fernet(key)
+    return fernet.decrypt(encrypted_data)
