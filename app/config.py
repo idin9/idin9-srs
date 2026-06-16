@@ -7,8 +7,8 @@ class Settings(BaseSettings):
     sip_listen_host: str = "0.0.0.0"
     sip_listen_port: int = 5060
     rtp_listen_host: str = "0.0.0.0"
-    rtp_min_port: int = 7000
-    rtp_max_port: int = 7399
+    rtp_min_port: int = 10000
+    rtp_max_port: int = 10100
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     # API key authentication. If set, all API requests must include X-API-Key header.
@@ -60,9 +60,6 @@ class Settings(BaseSettings):
     whisper_device: str = "auto"
     whisper_compute_type: str = "auto"
     whisper_cache_dir: str = ""
-    # Language hint for Whisper (ISO 639-1, e.g. "th" for Thai).
-    # Leave empty for auto-detect. Set to force a specific language for all recordings.
-    whisper_language: str = ""
 
     # ── Sentiment (Local) ───────────────────────────────
     #   English emotion: j-hartmann/emotion-english-distilroberta-base
@@ -75,9 +72,16 @@ class Settings(BaseSettings):
     transcription_enabled: bool = True
     sentiment_enabled: bool = True
 
-    # ── Session Timeout ──────────────────────────────────
-    # Auto-stop sessions after N seconds of no RTP activity (0 = disabled)
-    session_timeout_seconds: int = 300
+    # ── Authentication ──────────────────────────────────
+    auth_mode: str = "api_key" # "api_key", "local", "both"
+    jwt_secret: str = "idin9-srs-super-secret-jwt-key-change-me"
+    jwt_algorithm: str = "HS256"
+    jwt_expiry_hours: int = 24
+
+    # ── Regional & Display ───────────────────────────────
+    timezone: str = "UTC"
+    locale: str = "en_US"
+    font_family: str = "system"
 
     # ── Retention ───────────────────────────────────────
     retention_years: int = 7

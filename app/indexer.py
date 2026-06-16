@@ -122,6 +122,40 @@ class RecordingIndexer:
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
 
+    def get_total_count(self,
+                        start_time_from: Optional[str] = None,
+                        start_time_to: Optional[str] = None,
+                        caller: Optional[str] = None,
+                        callee: Optional[str] = None,
+                        min_sentiment: Optional[float] = None,
+                        max_sentiment: Optional[float] = None) -> int:
+        """Get total count of recordings matching filters."""
+        query = 'SELECT COUNT(*) FROM recordings WHERE 1=1'
+        params = []
+
+        if start_time_from:
+            query += ' AND end_time >= ?'
+            params.append(start_time_from)
+        if start_time_to:
+            query += ' AND end_time <= ?'
+            params.append(start_time_to)
+        if caller:
+            query += ' AND caller = ?'
+            params.append(caller)
+        if callee:
+            query += ' AND callee = ?'
+            params.append(callee)
+        if min_sentiment is not None:
+            query += ' AND sentiment_score >= ?'
+            params.append(min_sentiment)
+        if max_sentiment is not None:
+            query += ' AND sentiment_score <= ?'
+            params.append(max_sentiment)
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(query, params)
+            return cursor.fetchone()[0]
+
     def cleanup_old_recordings(self, retention_years: int) -> int:
         """
         Delete recordings older than retention_years.

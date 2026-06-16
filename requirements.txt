@@ -8,3 +8,4 @@ torch>=2.0.0
 numpy>=1.26.0
 opuslib>=3.0.0
 cryptography>=41.0.0
+PyJWT>=2.8.0

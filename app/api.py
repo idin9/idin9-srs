@@ -1,11 +1,13 @@
 import os
 import json
 import logging
+import uuid
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Request, Query, Header, Depends
 from fastapi.responses import FileResponse
 from typing import Optional, List, Dict, Any
 from pathlib import Path
+import jwt
 
 from .models import (
     SessionInfo,
@@ -15,18 +17,63 @@ from .models import (
     SentimentTranscriptResponse,
     RecordingInfo,
     ErrorResponse,
+    LoginRequest,
+    TokenResponse,
+    UserCreateRequest,
+    UserRoleUpdateRequest,
 )
 from .config import settings
+from .auth import authenticate_local_user
+from . import user_manager
 
 logger = logging.getLogger(__name__)
 
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(hours=settings.jwt_expiry_hours)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    return encoded_jwt
 
-async def verify_api_key(x_api_key: str = Header("", alias="X-API-Key")):
-    if not settings.api_key:
-        return True
-    if x_api_key != settings.api_key:
-        raise HTTPException(status_code=403, detail="Invalid or missing API key")
-    return True
+async def verify_auth(
+    x_api_key: str = Header("", alias="X-API-Key"),
+    authorization: str = Header("", alias="Authorization")
+):
+    if settings.auth_mode == "api_key" or settings.auth_mode == "both":
+        if settings.api_key and x_api_key == settings.api_key:
+            return {"username": "api_user", "role": "admin"}
+            
+    if settings.auth_mode == "local" or settings.auth_mode == "both":
+        if authorization.startswith("Bearer "):
+            token = authorization.split(" ")[1]
+            try:
+                payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+                username: str = payload.get("sub")
+                role: str = payload.get("role")
+                if username is None or role is None:
+                    raise HTTPException(status_code=403, detail="Invalid token")
+                return {"username": username, "role": role}
+            except jwt.ExpiredSignatureError:
+                raise HTTPException(status_code=403, detail="Token has expired")
+            except jwt.InvalidTokenError:
+                raise HTTPException(status_code=403, detail="Invalid token")
+                
+    if settings.auth_mode == "api_key" and not settings.api_key:
+        return {"username": "anonymous", "role": "admin"}
+        
+    raise HTTPException(status_code=403, detail="Invalid authentication credentials")
+
+async def verify_admin(user: dict = Depends(verify_auth)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Administrator access required")
+    return user
+
+
+def _validate_uuid(session_id: str):
+    try:
+        uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(400, detail=f"Invalid session_id format: {session_id}")
 
 
 def create_router():
@@ -40,7 +87,8 @@ def create_router():
         responses={404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
         summary="Stop a recording and process results",
     )
-    async def stop_recording(session_id: str, request: Request, _auth: bool = Depends(verify_api_key)):
+    async def stop_recording(session_id: str, request: Request, user: dict = Depends(verify_auth)):
+        _validate_uuid(session_id)
         sm = request.app.state.session_manager
         info = await sm.stop_session(session_id)
         if info is None:
@@ -61,7 +109,8 @@ def create_router():
         responses={404: {"model": ErrorResponse}},
         summary="Get sentiment and transcript for a session",
     )
-    async def get_sentiment_transcript(session_id: str, request: Request, _auth: bool = Depends(verify_api_key)):
+    async def get_sentiment_transcript(session_id: str, request: Request, user: dict = Depends(verify_auth)):
+        _validate_uuid(session_id)
         sm = request.app.state.session_manager
         info = sm.get_session(session_id)
         if info is not None:
@@ -90,8 +139,9 @@ def create_router():
         summary="Download or play the recording audio file",
         responses={404: {"description": "Audio file not found"}},
     )
-    async def get_audio_file(session_id: str, request: Request, _auth: bool = Depends(verify_api_key)):
+    async def get_audio_file(session_id: str, request: Request, user: dict = Depends(verify_auth)):
         """Stream the audio file for playback or download. Decrypts on-the-fly if encrypted."""
+        _validate_uuid(session_id)
         indexer = request.app.state.indexer
         record = indexer.get_recording(session_id)
         
@@ -157,7 +207,7 @@ def create_router():
         response_model=list[SessionInfo],
         summary="List all active recording sessions (in memory)",
     )
-    async def list_sessions(request: Request, _auth: bool = Depends(verify_api_key)):
+    async def list_sessions(request: Request, user: dict = Depends(verify_admin)):
         sm = request.app.state.session_manager
         return sm.list_sessions()
 
@@ -165,7 +215,7 @@ def create_router():
         "/logs",
         summary="Get recent live logs",
     )
-    async def get_logs(request: Request, _auth: bool = Depends(verify_api_key)):
+    async def get_logs(request: Request, user: dict = Depends(verify_admin)):
         from .main import log_buffer
         return {"logs": list(log_buffer)}
 
@@ -173,13 +223,12 @@ def create_router():
 
     @router.get(
         "/recordings",
-        response_model=List[RecordingInfo],
         summary="Query indexed recordings with filtering and pagination",
     )
     async def list_recordings(
         request: Request,
-        _auth: bool = Depends(verify_api_key),
-        limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+        user: dict = Depends(verify_auth),
+        limit: int = Query(50, ge=1, le=1000, description="Maximum number of records to return"),
         offset: int = Query(0, ge=0, description="Number of records to skip"),
         start_time_from: Optional[str] = Query(None, description="Filter recordings ending after this time (ISO format)"),
         start_time_to: Optional[str] = Query(None, description="Filter recordings ending before this time (ISO format)"),
@@ -200,7 +249,20 @@ def create_router():
             min_sentiment=min_sentiment,
             max_sentiment=max_sentiment,
         )
-        return recordings
+        total_count = indexer.get_total_count(
+            start_time_from=start_time_from,
+            start_time_to=start_time_to,
+            caller=caller,
+            callee=callee,
+            min_sentiment=min_sentiment,
+            max_sentiment=max_sentiment,
+        )
+        return {
+            "recordings": recordings,
+            "total_count": total_count,
+            "limit": limit,
+            "offset": offset
+        }
 
     # ===================== ADMIN SETTINGS =====================
 
@@ -208,7 +270,7 @@ def create_router():
         "/admin/settings",
         summary="Get current system configuration",
     )
-    async def get_settings(request: Request, _auth: bool = Depends(verify_api_key)):
+    async def get_settings(request: Request, user: dict = Depends(verify_admin)):
         """Return all current settings from the config."""
         from .config import settings as cfg
 
@@ -221,6 +283,10 @@ def create_router():
             "api_host": cfg.api_host,
             "api_port": cfg.api_port,
             "api_key": cfg.api_key,
+            "auth_mode": cfg.auth_mode,
+            "timezone": cfg.timezone,
+            "locale": cfg.locale,
+            "font_family": cfg.font_family,
             "output_dir": cfg.output_dir,
             "transcription_provider": cfg.transcription_provider,
             "transcription_api_key": cfg.transcription_api_key,
@@ -234,7 +300,6 @@ def create_router():
             "whisper_device": cfg.whisper_device,
             "whisper_compute_type": cfg.whisper_compute_type,
             "whisper_cache_dir": cfg.whisper_cache_dir,
-            "whisper_language": cfg.whisper_language,
             "sentiment_model": cfg.sentiment_model,
             "sentiment_mapping": mapping_raw,
             "hf_cache_dir": cfg.hf_cache_dir,
@@ -245,20 +310,27 @@ def create_router():
             "audio_format": cfg.audio_format,
             "encryption_enabled": cfg.encryption_enabled,
             "encryption_password": cfg.encryption_password,
-            "session_timeout_seconds": cfg.session_timeout_seconds,
         }
 
     @router.put(
         "/admin/settings",
         summary="Update system configuration",
     )
-    async def update_settings(payload: Dict[str, Any], request: Request, _auth: bool = Depends(verify_api_key)):
+    async def update_settings(payload: Dict[str, Any], request: Request, user: dict = Depends(verify_admin)):
         """
         Save configuration overrides to config.override.json.
         Note: Some settings (SIP port, RTP ports, Whisper model) require a server restart.
         """
         allowed_fields = {
+            "sip_listen_host",
+            "sip_listen_port",
+            "rtp_min_port",
+            "rtp_max_port",
             "api_key",
+            "auth_mode",
+            "timezone",
+            "locale",
+            "font_family",
             "transcription_provider",
             "transcription_api_key",
             "transcription_api_url",
@@ -271,18 +343,17 @@ def create_router():
             "whisper_device",
             "whisper_compute_type",
             "whisper_cache_dir",
-            "whisper_language",
             "sentiment_model",
             "transcription_enabled",
             "sentiment_enabled",
             "sentiment_mapping",
             "hf_cache_dir",
             "retention_years",
+            "index_db",
             "output_dir",
             "audio_format",
             "encryption_enabled",
             "encryption_password",
-            "session_timeout_seconds",
         }
 
         project_root = Path(__file__).parent.parent
@@ -334,7 +405,7 @@ def create_router():
         "/maintenance/cleanup",
         summary="Trigger cleanup of old recordings based on retention policy",
     )
-    async def trigger_cleanup(request: Request, _auth: bool = Depends(verify_api_key)):
+    async def trigger_cleanup(request: Request, user: dict = Depends(verify_admin)):
         """Manually trigger cleanup of recordings older than retention policy."""
         indexer = request.app.state.indexer
         from .config import settings as cfg
@@ -345,6 +416,77 @@ def create_router():
             "retention_years": cfg.retention_years,
             "message": f"Cleaned up {deleted_count} recordings older than {cfg.retention_years} years",
         }
+
+    # ===================== AUTH & USERS =====================
+
+    @router.post(
+        "/auth/login",
+        response_model=TokenResponse,
+        summary="Login with local Linux user",
+    )
+    async def login(login_req: LoginRequest):
+        if settings.auth_mode == "api_key":
+            raise HTTPException(400, detail="Local authentication is disabled")
+            
+        user_info = authenticate_local_user(login_req.username, login_req.password)
+        if not user_info:
+            raise HTTPException(status_code=401, detail="Incorrect username or password")
+            
+        access_token = create_access_token(data={"sub": user_info["username"], "role": user_info["role"]})
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "role": user_info["role"],
+            "username": user_info["username"]
+        }
+
+    @router.get(
+        "/auth/me",
+        summary="Get current user info",
+    )
+    async def get_me(user: dict = Depends(verify_auth)):
+        return user
+
+    @router.get(
+        "/admin/users",
+        summary="List all local users for this application",
+    )
+    async def get_users(user: dict = Depends(verify_admin)):
+        return user_manager.list_users()
+
+    @router.post(
+        "/admin/users",
+        summary="Create a new local user",
+    )
+    async def create_user(req: UserCreateRequest, user: dict = Depends(verify_admin)):
+        if req.role not in ["admin", "auditor"]:
+            raise HTTPException(400, detail="Invalid role")
+        success, msg = user_manager.create_user(req.username, req.password, req.role)
+        if not success:
+            raise HTTPException(400, detail=msg)
+        return {"status": "success", "message": msg}
+
+    @router.delete(
+        "/admin/users/{username}",
+        summary="Delete a local user",
+    )
+    async def delete_user(username: str, user: dict = Depends(verify_admin)):
+        success, msg = user_manager.delete_user(username)
+        if not success:
+            raise HTTPException(400, detail=msg)
+        return {"status": "success", "message": msg}
+
+    @router.put(
+        "/admin/users/{username}/role",
+        summary="Update a local user's role",
+    )
+    async def update_user_role(username: str, req: UserRoleUpdateRequest, user: dict = Depends(verify_admin)):
+        if req.role not in ["admin", "auditor"]:
+            raise HTTPException(400, detail="Invalid role")
+        success, msg = user_manager.change_user_role(username, req.role)
+        if not success:
+            raise HTTPException(400, detail=msg)
+        return {"status": "success", "message": msg}
 
     # ===================== HEALTH =====================
 
@@ -363,8 +505,9 @@ def create_router():
     async def public_info():
         return {
             "service": "idin9-srs",
-            "version": "26.06.03",
-            "auth_required": bool(settings.api_key),
+            "version": "26.06.04",
+            "auth_mode": settings.auth_mode,
+            "auth_required": bool(settings.api_key) if settings.auth_mode == "api_key" else True,
         }
 
     return router
