@@ -183,8 +183,8 @@ class SessionManager:
                             self.transcriber.transcribe_segments(ch_paths[0], language=lang),
                             self.transcriber.transcribe_segments(ch_paths[1], language=lang),
                         )
-                        label0 = info.caller or "Agent"
-                        label1 = info.callee or "Customer"
+                        label0 = "Agent"
+                        label1 = "Caller"
                         merged = []
                         i = j = 0
                         while i < len(segs0) and j < len(segs1):

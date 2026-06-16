@@ -127,7 +127,7 @@ class Transcriber:
         loop = asyncio.get_event_loop()
 
         def _transcribe():
-            kwargs = {"beam_size": 5}
+            kwargs = {"beam_size": 1}
             if language:
                 kwargs["language"] = language
             segments, info = self._local_model.transcribe(audio_path, **kwargs)
@@ -148,7 +148,7 @@ class Transcriber:
         loop = asyncio.get_event_loop()
 
         def _segments():
-            kwargs = {"beam_size": 5}
+            kwargs = {"beam_size": 1}
             if language:
                 kwargs["language"] = language
             segs, _ = self._local_model.transcribe(audio_path, **kwargs)
