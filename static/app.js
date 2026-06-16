@@ -82,7 +82,7 @@ function switchTab(tab) {
 // ============ AUDITOR ============
 async function searchRecordings() {
   const tbody = document.getElementById('results-body');
-  tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Searching...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">Searching...</td></tr>';
 
   const params = new URLSearchParams();
 
@@ -109,7 +109,7 @@ async function searchRecordings() {
     const data = await res.json();
     renderResults(data);
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">Error: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-msg">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -118,7 +118,7 @@ function renderResults(recordings) {
   const statsBar = document.getElementById('stats-bar');
 
   if (!recordings || recordings.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">No recordings found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">No recordings found.</td></tr>';
     statsBar.innerHTML = '';
     return;
   }
@@ -131,12 +131,14 @@ function renderResults(recordings) {
     const dt = formatDateTime(r.end_time);
     const dur = formatDuration(r.duration);
 
+    const transcriptPreview = r.transcript ? escapeHtml(r.transcript.substring(0, 80)) + (r.transcript.length > 80 ? '...' : '') : '-';
     return `<tr>
       <td title="${r.end_time}">${dt}</td>
       <td>${escapeHtml(r.caller || '-')}</td>
       <td>${escapeHtml(r.callee || '-')}</td>
       <td>${dur}</td>
       <td><span class="sentiment-badge ${scoreClass}">${score.toFixed(1)}</span></td>
+      <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(r.transcript || '')}">${transcriptPreview}</td>
       <td class="actions-cell">
         <button class="btn btn-primary btn-sm" onclick="playAudio('${encodeURIComponent(r.session_id)}')">Play</button>
         <a href="${API_BASE}/recordings/${encodeURIComponent(r.session_id)}/audio" class="btn btn-secondary btn-sm" download>Export</a>

@@ -1,4 +1,6 @@
 import asyncio
+import json
+import os
 import time
 import logging
 import threading
@@ -195,6 +197,25 @@ class SessionManager:
                 logger.error("Session %s sentiment error: %s", session_id, e)
                 info.sentiment_score = 1.0
                 info.sentiment_label = "neutral"
+
+            # Save cache files
+            try:
+                whisper_dir = os.path.join("cache", "whisper")
+                sentiment_dir = os.path.join("cache", "sentiment")
+                os.makedirs(whisper_dir, exist_ok=True)
+                os.makedirs(sentiment_dir, exist_ok=True)
+                if info.transcript:
+                    with open(os.path.join(whisper_dir, f"{session_id}.txt"), "w") as f:
+                        f.write(info.transcript)
+                sent_data = {
+                    "score": info.sentiment_score,
+                    "label": info.sentiment_label,
+                    "transcript": info.transcript,
+                }
+                with open(os.path.join(sentiment_dir, f"{session_id}.json"), "w") as f:
+                    json.dump(sent_data, f, indent=2)
+            except Exception as e:
+                logger.error("Session %s cache file error: %s", session_id, e)
 
             try:
                 final_path = self.audio_processor.process_final_audio(session_id, wav_path)

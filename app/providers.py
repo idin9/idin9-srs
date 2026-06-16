@@ -8,6 +8,8 @@ from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 # ── Default API base URLs ──────────────────────────────
@@ -86,11 +88,31 @@ def transcribe_openai(audio_path: str, api_key: str, api_url: str, model: str) -
         raise
 
 
+def _audio_to_16khz_mono_base64(wav_path: str) -> str:
+    import wave as wave_mod
+    with wave_mod.open(wav_path, "rb") as wf:
+        nchannels = wf.getnchannels()
+        sampwidth = wf.getsampwidth()
+        framerate = wf.getframerate()
+        nframes = wf.getnframes()
+        frames = wf.readframes(nframes)
+    samples = np.frombuffer(frames, dtype=np.int16)
+    if nchannels == 2:
+        samples = samples.reshape(-1, 2).mean(axis=1).astype(np.int16)
+    if framerate != 16000:
+        new_len = int(len(samples) * 16000 / framerate)
+        samples = np.interp(
+            np.linspace(0, len(samples) - 1, new_len),
+            np.arange(len(samples)),
+            samples.astype(np.float64),
+        ).astype(np.int16)
+    return base64.b64encode(samples.tobytes()).decode("utf-8")
+
+
 def transcribe_ollama(audio_path: str, api_url: str, model: str) -> str:
     base = api_url.strip() or OLLAMA_API_BASE
     url = urljoin(base.rstrip("/") + "/", "api/generate")
-    with open(audio_path, "rb") as f:
-        audio_b64 = base64.b64encode(f.read()).decode("utf-8")
+    audio_b64 = _audio_to_16khz_mono_base64(audio_path)
     payload = {
         "model": model or "whisper",
         "prompt": "",
