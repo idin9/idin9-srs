@@ -131,14 +131,14 @@ function renderResults(recordings) {
     const dt = formatDateTime(r.end_time);
     const dur = formatDuration(r.duration);
 
-    const transcriptPreview = r.transcript ? escapeHtml(r.transcript.substring(0, 80)) + (r.transcript.length > 80 ? '...' : '') : '-';
+    const hasTranscript = r.transcript && r.transcript.length > 0;
     return `<tr>
       <td title="${r.end_time}">${dt}</td>
       <td>${escapeHtml(r.caller || '-')}</td>
       <td>${escapeHtml(r.callee || '-')}</td>
       <td>${dur}</td>
       <td><span class="sentiment-badge ${scoreClass}">${score.toFixed(1)}</span></td>
-      <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(r.transcript || '')}">${transcriptPreview}</td>
+      <td class="text-center">${hasTranscript ? `<a href="javascript:void(0)" onclick="showTranscript('${encodeURIComponent(r.session_id)}')" title="View transcript"><i class="bi bi-paperclip fs-5"></i></a>` : '-'}</td>
       <td class="actions-cell">
         <button class="btn btn-primary btn-sm" onclick="playAudio('${encodeURIComponent(r.session_id)}')">Play</button>
         <a href="${API_BASE}/recordings/${encodeURIComponent(r.session_id)}/audio" class="btn btn-secondary btn-sm" download>Export</a>
@@ -157,6 +157,39 @@ function resetFilters() {
   document.getElementById('filter-limit').value = '50';
   searchRecordings();
 }
+
+// ============ TRANSCRIPT VIEWER ============
+async function showTranscript(sessionId) {
+  const modal = document.getElementById('transcript-modal');
+  const content = document.getElementById('transcript-content');
+  const title = document.getElementById('transcript-modal-title');
+
+  title.textContent = `Session: ${sessionId}`;
+  content.textContent = 'Loading transcript...';
+  modal.style.display = 'flex';
+
+  try {
+    const res = await apiFetch(`${API_BASE}/record/${sessionId}`);
+    if (res.ok) {
+      const data = await res.json();
+      content.textContent = data.transcript || '(no transcript)';
+    } else {
+      content.textContent = `Error: HTTP ${res.status}`;
+    }
+  } catch (err) {
+    content.textContent = `Error: ${err.message}`;
+  }
+}
+
+function closeTranscriptModal() {
+  document.getElementById('transcript-modal').style.display = 'none';
+}
+
+// Close transcript modal on backdrop click
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('transcript-modal');
+  if (e.target === modal) closeTranscriptModal();
+});
 
 // ============ AUDIO PLAYER ============
 async function playAudio(sessionId) {
