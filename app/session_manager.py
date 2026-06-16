@@ -175,7 +175,9 @@ class SessionManager:
         if wav_path:
             try:
                 if self.transcription_enabled:
-                    transcript = await self.transcriber.transcribe(wav_path)
+                    from .config import settings as cfg
+                    lang = cfg.whisper_language.strip() or None
+                    transcript = await self.transcriber.transcribe(wav_path, language=lang)
                     info.transcript = transcript
                     logger.info("Session %s transcription complete (%d chars)", session_id, len(transcript))
                 else:

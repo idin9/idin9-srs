@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     whisper_device: str = "auto"
     whisper_compute_type: str = "auto"
     whisper_cache_dir: str = ""
+    # Language hint for Whisper (ISO 639-1, e.g. "th" for Thai).
+    # Leave empty for auto-detect. Set to force a specific language for all recordings.
+    whisper_language: str = ""
 
     # ── Sentiment (Local) ───────────────────────────────
     #   English emotion: j-hartmann/emotion-english-distilroberta-base
