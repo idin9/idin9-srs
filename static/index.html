@@ -132,17 +132,13 @@
           <i class="bi bi-sliders me-2"></i> Administrator
         </button>
       </li>
-      <li>
-        <button class="nav-link w-100 text-start tab-btn link-dark" data-tab="console" onclick="switchTab('console')">
-          <i class="bi bi-terminal me-2"></i> Live Console
-        </button>
-      </li>
     </ul>
     
     <hr>
     <div class="footer text-muted small">
-      <p class="mb-1">idin9-srs v26.06.03</p>
+      <p class="mb-1">idin9-srs v26.06.04</p>
       <a href="/docs" target="_blank" class="text-decoration-none"><i class="bi bi-book me-1"></i>API Docs</a>
+      <div class="mt-2"><button class="btn btn-sm btn-outline-secondary" onclick="logout()">Logout</button></div>
     </div>
   </aside>
 
@@ -226,6 +222,14 @@
               </tbody>
             </table>
           </div>
+          
+          <!-- Pagination -->
+          <div class="d-flex justify-content-between align-items-center p-3 border-top bg-white">
+            <span class="text-muted small" id="pagination-info">Showing 0 of 0</span>
+            <div class="btn-group" id="pagination-controls">
+              <!-- populated by js -->
+            </div>
+          </div>
         </div>
       </div>
 
@@ -259,12 +263,27 @@
         <p class="text-muted mb-0">Manage core recording settings, remote AI providers, model caches, and database maintenance</p>
       </div>
 
-      <div id="admin-loading" class="text-center py-5 text-muted">
-        <div class="spinner-border text-primary mb-2" role="status"></div>
-        <div>Loading configuration parameters...</div>
+      <div class="mb-4">
+        <ul class="nav nav-tabs">
+          <li class="nav-item">
+            <button class="nav-link active" id="btn-sub-admin" onclick="switchAdminSubTab('settings')">Settings</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" id="btn-sub-users" onclick="switchAdminSubTab('users')">User Management</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" id="btn-sub-console" onclick="switchAdminSubTab('console')">Live Console</button>
+          </li>
+        </ul>
       </div>
 
-      <form id="admin-form" style="display:none" onsubmit="saveSettings(event)">
+      <div id="sub-admin-settings" class="admin-sub-content">
+        <div id="admin-loading" class="text-center py-5 text-muted">
+          <div class="spinner-border text-primary mb-2" role="status"></div>
+          <div>Loading configuration parameters...</div>
+        </div>
+
+        <form id="admin-form" style="display:none" onsubmit="saveSettings(event)">
         <div class="row g-4">
           <div class="col-lg-6">
             <!-- Server & Security Card -->
@@ -293,9 +312,50 @@
                   <span class="form-text text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Requires restart</span>
                 </div>
                 <div>
+                  <label class="form-label text-muted small mb-1">Server Auth Mode</label>
+                  <select name="auth_mode" class="form-select">
+                    <option value="local">Local Linux Users (Web Login)</option>
+                    <option value="api_key">API Key Header</option>
+                    <option value="both">Both</option>
+                  </select>
+                </div>
+                <div>
                   <label class="form-label text-muted small mb-1">Server API Key</label>
                   <input type="text" name="api_key" class="form-control" placeholder="Keep empty to disable API authentication">
                   <span class="form-text text-muted small">Secures REST API endpoints with X-API-Key header</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Regional & Display Settings -->
+            <div class="card shadow-sm mb-4">
+              <div class="card-header bg-white py-3">
+                <h5 class="card-title mb-0 text-secondary fw-semibold"><i class="bi bi-globe me-2"></i>Regional &amp; Display</h5>
+              </div>
+              <div class="card-body d-flex flex-column gap-3">
+                <div>
+                  <label class="form-label text-muted small mb-1">Timezone</label>
+                  <select name="timezone" class="form-select">
+                    <option value="UTC">UTC</option>
+                    <option value="Asia/Bangkok">Asia/Bangkok</option>
+                    <option value="America/New_York">America/New_York</option>
+                    <option value="Europe/London">Europe/London</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label text-muted small mb-1">Locale</label>
+                  <select name="locale" class="form-select">
+                    <option value="en_US">English (US)</option>
+                    <option value="th_TH">Thai (TH)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label text-muted small mb-1">Font Family</label>
+                  <select name="font_family" class="form-select">
+                    <option value="system">System Default</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Roboto">Roboto</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -504,56 +564,79 @@
           <span id="cleanup-status" class="fw-semibold small"></span>
         </div>
       </div>
-    </section>
-
-    <!-- ============ LIVE CONSOLE TAB ============ -->
-    <section id="tab-console" class="tab-content" style="display:none">
-      <div class="mb-4">
-        <h1 class="h3 fw-bold text-dark mb-1">Live Troubleshoot Console</h1>
-        <p class="text-muted mb-0">Monitor active SIP sessions and inspect incoming SIP packets and RTP connection logs live</p>
       </div>
 
-      <div class="row g-4">
-        <!-- Active Sessions -->
-        <div class="col-lg-5">
-          <div class="card shadow-sm h-100">
-            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-              <h5 class="card-title mb-0 text-secondary fw-semibold"><i class="bi bi-activity me-2"></i>Active Sessions</h5>
-              <button class="btn btn-outline-secondary btn-sm" onclick="fetchLiveSessions()"><i class="bi bi-arrow-clockwise"></i></button>
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
-                <table class="table table-hover align-middle mb-0">
-                  <thead>
-                    <tr>
-                      <th class="px-3">Session ID</th>
-                      <th>Caller</th>
-                      <th>Callee</th>
-                      <th>State</th>
-                    </tr>
-                  </thead>
-                  <tbody id="live-sessions-body">
-                    <tr><td colspan="4" class="text-center text-muted py-5">No active sessions</td></tr>
-                  </tbody>
-                </table>
-              </div>
+      <!-- User Management Sub-Tab -->
+      <div id="sub-admin-users" class="admin-sub-content" style="display:none">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0 text-secondary fw-semibold"><i class="bi bi-people me-2"></i>Local Users</h5>
+            <button class="btn btn-primary btn-sm" onclick="showAddUserModal()"><i class="bi bi-person-plus me-1"></i>Add User</button>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th class="px-3">Username</th>
+                    <th>Role</th>
+                    <th class="text-end px-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body">
+                  <tr><td colspan="3" class="text-center text-muted py-5">Loading users...</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Live logs / tcpdump transaction simulation -->
-        <div class="col-lg-7">
-          <div class="card shadow-sm h-100">
-            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-              <h5 class="card-title mb-0 text-secondary fw-semibold"><i class="bi bi-receipt me-2"></i>SIP/RTP Connection Transactions</h5>
-              <label class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="auto-refresh-logs" checked onchange="toggleLogRefresh()">
-                <span class="form-check-label small text-muted">Auto-refresh</span>
-              </label>
+      <!-- Live Console Sub-Tab -->
+      <div id="sub-admin-console" class="admin-sub-content" style="display:none">
+        <div class="row g-4 flex-column">
+          <!-- Active Sessions -->
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0 text-secondary fw-semibold"><i class="bi bi-activity me-2"></i>Active Sessions</h5>
+                <button class="btn btn-outline-secondary btn-sm" onclick="fetchLiveSessions()"><i class="bi bi-arrow-clockwise"></i></button>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                  <table class="table table-hover align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th class="px-3">Date/Time</th>
+                        <th>Session ID</th>
+                        <th>Caller</th>
+                        <th>Callee</th>
+                        <th>State</th>
+                      </tr>
+                    </thead>
+                    <tbody id="live-sessions-body">
+                      <tr><td colspan="5" class="text-center text-muted py-5">No active sessions</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-            <div class="card-body p-3 bg-dark" style="border-bottom-left-radius:12px; border-bottom-right-radius:12px;">
-              <div id="live-logs-container" class="font-monospace text-light overflow-auto p-1" style="height: 415px; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; line-height: 1.4;">
-                Connecting to stream...
+          </div>
+
+          <!-- Live logs -->
+          <div class="col-12">
+            <div class="card shadow-sm h-100">
+              <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0 text-secondary fw-semibold"><i class="bi bi-receipt me-2"></i>SIP/RTP Connection Transactions</h5>
+                <label class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="auto-refresh-logs" checked onchange="toggleLogRefresh()">
+                  <span class="form-check-label small text-muted">Auto-refresh</span>
+                </label>
+              </div>
+              <div class="card-body p-3 bg-dark" style="border-bottom-left-radius:12px; border-bottom-right-radius:12px;">
+                <div id="live-logs-container" class="font-monospace text-light overflow-auto p-1" style="height: 400px; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; line-height: 1.4;">
+                  Connecting to stream...
+                </div>
               </div>
             </div>
           </div>
@@ -562,6 +645,61 @@
     </section>
 
   </main>
+</div>
+
+<!-- Login Modal -->
+<div id="login-modal" class="custom-modal-backdrop" style="display:none; z-index:1060; background: #fff;">
+  <div class="card shadow-lg p-4" style="width:90%; max-width:400px; border-radius:16px; margin: auto;">
+    <div class="text-center mb-4">
+      <i class="bi bi-soundwave text-primary" style="font-size: 3rem;"></i>
+      <h3 class="fw-bold mt-2">idin9-srs</h3>
+      <p class="text-muted">Please sign in to continue</p>
+    </div>
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <div class="mb-3">
+        <label class="form-label text-muted small">Username</label>
+        <input type="text" id="login-username" class="form-control" required>
+      </div>
+      <div class="mb-4">
+        <label class="form-label text-muted small">Password</label>
+        <input type="password" id="login-password" class="form-control" required>
+      </div>
+      <div id="login-error" class="text-danger small mb-3 text-center" style="display:none">Invalid credentials</div>
+      <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div id="add-user-modal" class="custom-modal-backdrop" style="display:none">
+  <div class="card shadow-lg p-4" style="width:90%; max-width:500px; border-radius:16px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h5 class="modal-title fw-bold text-dark">Add New User</h5>
+      <button type="button" class="btn-close" onclick="closeAddUserModal()"></button>
+    </div>
+    <form id="add-user-form" onsubmit="submitAddUser(event)">
+      <div class="mb-3">
+        <label class="form-label text-muted small">Username</label>
+        <input type="text" id="new-username" class="form-control" required pattern="[a-zA-Z0-9_-]+" title="Alphanumeric, dash, and underscore only">
+      </div>
+      <div class="mb-3">
+        <label class="form-label text-muted small">Password</label>
+        <input type="password" id="new-password" class="form-control" required minlength="6">
+      </div>
+      <div class="mb-4">
+        <label class="form-label text-muted small">Role</label>
+        <select id="new-role" class="form-select">
+          <option value="auditor">Auditor (View only)</option>
+          <option value="admin">Administrator (Full access)</option>
+        </select>
+      </div>
+      <div id="add-user-error" class="text-danger small mb-3" style="display:none"></div>
+      <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-secondary" onclick="closeAddUserModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create User</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Bootstrap Bundle with Popper JS -->

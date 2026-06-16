@@ -58,3 +58,26 @@ class RecordingInfo(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    role: str
+    username: str
+
+
+class UserCreateRequest(BaseModel):
+    username: str
+    password: str
+    role: str  # "admin" or "auditor"
+
+
+class UserRoleUpdateRequest(BaseModel):
+    role: str
+

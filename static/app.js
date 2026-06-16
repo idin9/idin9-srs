@@ -5,35 +5,53 @@
 const API_BASE = '/api/v1';
 
 // ── API Key Management ──────────────────────
+let currentUserRole = null;
+let currentOffset = 0;
+const LIMIT = 50;
+
+function getAuthHeader() {
+  const token = localStorage.getItem('idin9_auth_token');
+  if (token) return `Bearer ${token}`;
+  return null;
+}
+
 function getApiKey() {
   return localStorage.getItem('idin9_api_key') || '';
 }
 
-function setApiKey(key) {
-  localStorage.setItem('idin9_api_key', key);
+function setAuthToken(token) {
+  localStorage.setItem('idin9_auth_token', token);
+}
+
+function logout() {
+  localStorage.removeItem('idin9_auth_token');
+  localStorage.removeItem('idin9_api_key');
+  location.reload();
 }
 
 async function apiFetch(url, options = {}) {
   const headers = options.headers || {};
+  
+  const token = getAuthHeader();
+  if (token) {
+    headers['Authorization'] = token;
+  }
+  
   const apiKey = getApiKey();
   if (apiKey) {
     headers['X-API-Key'] = apiKey;
   }
+  
   const res = await fetch(url, { ...options, headers });
 
-  if (res.status === 403) {
-    const key = prompt('API key required. Enter your API key:');
-    if (key) {
-      setApiKey(key);
-      headers['X-API-Key'] = key;
-      const retry = await fetch(url, { ...options, headers });
-      if (retry.status === 403) {
-        setApiKey('');
-        alert('Invalid API key.');
-        return retry;
-      }
-      return retry;
+  if (res.status === 403 || res.status === 401) {
+    // If we're unauthorized and we have a token, it might be expired
+    if (token) {
+      logout();
+      return;
     }
+    // Need to login or enter API key
+    document.getElementById('login-modal').style.display = 'flex';
   }
 
   return res;
@@ -45,13 +63,79 @@ async function apiFetch(url, options = {}) {
     const res = await fetch(`${API_BASE}/info`);
     if (res.ok) {
       const info = await res.json();
-      if (info.auth_required && !getApiKey()) {
-        const key = prompt('This server requires an API key. Please enter it:');
-        if (key) setApiKey(key);
+      
+      // Update font family if set
+      if (info.font_family && info.font_family !== 'system') {
+        document.body.style.fontFamily = info.font_family;
+      }
+      
+      if (info.auth_required && !getAuthHeader() && !getApiKey()) {
+        if (info.auth_mode === 'api_key') {
+          const key = prompt('This server requires an API key. Please enter it:');
+          if (key) {
+            setApiKey(key);
+            location.reload();
+          }
+        } else {
+          document.getElementById('login-modal').style.display = 'flex';
+        }
+      } else if (getAuthHeader() || getApiKey()) {
+        // Fetch user info to set role
+        const meRes = await apiFetch(`${API_BASE}/auth/me`);
+        if (meRes && meRes.ok) {
+          const user = await meRes.json();
+          currentUserRole = user.role;
+          applyRolePermissions();
+        }
       }
     }
   } catch {}
 })();
+
+function applyRolePermissions() {
+  if (currentUserRole === 'auditor') {
+    // Hide Admin tabs
+    document.querySelector('[data-tab="admin"]').style.display = 'none';
+    if (document.querySelector('.tab-btn.active').dataset.tab !== 'auditor') {
+      switchTab('auditor');
+    }
+  } else {
+    document.querySelector('[data-tab="admin"]').style.display = 'block';
+  }
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('login-error');
+  
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      setAuthToken(data.access_token);
+      document.getElementById('login-modal').style.display = 'none';
+      location.reload(); // Reload to apply role permissions and fetch data
+    } else {
+      errorEl.style.display = 'block';
+      if (res.status === 400) {
+          const errData = await res.json();
+          errorEl.textContent = errData.detail;
+      } else {
+          errorEl.textContent = 'Invalid credentials';
+      }
+    }
+  } catch (err) {
+    errorEl.style.display = 'block';
+    errorEl.textContent = 'Connection error';
+  }
+}
 
 // ============ TAB SWITCHING ============
 function switchTab(tab) {
@@ -74,25 +158,49 @@ function switchTab(tab) {
     activeTab.style.display = 'block';
   }
 
-  if (tab === 'admin') loadAdminConfig();
-  if (tab === 'auditor') searchRecordings();
-  if (tab === 'console') initConsoleTab();
+  if (tab === 'admin') {
+    switchAdminSubTab('settings');
+  }
+  if (tab === 'auditor') searchRecordings(0);
+}
+
+function switchAdminSubTab(subTab) {
+  document.querySelectorAll('#tab-admin .nav-link').forEach(b => b.classList.remove('active'));
+  document.getElementById(`btn-sub-${subTab}`).classList.add('active');
+  
+  document.querySelectorAll('.admin-sub-content').forEach(c => c.style.display = 'none');
+  document.getElementById(`sub-admin-${subTab}`).style.display = 'block';
+  
+  if (subTab === 'settings') loadAdminConfig();
+  if (subTab === 'users') loadUsers();
+  if (subTab === 'console') initConsoleTab();
 }
 
 // ============ AUDITOR ============
-async function searchRecordings() {
+async function searchRecordings(offset = 0) {
+  currentOffset = offset;
   const tbody = document.getElementById('results-body');
   tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Searching...</td></tr>';
 
   const params = new URLSearchParams();
 
-  const startVal = document.getElementById('filter-start').value;
+  let startVal = document.getElementById('filter-start').value;
   const endVal = document.getElementById('filter-end').value;
+  
+  // Default to 7 days if empty and initial load
+  if (!startVal && !endVal) {
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      // Format to YYYY-MM-DDTHH:mm:ss for input
+      startVal = d.toISOString().slice(0,19);
+      document.getElementById('filter-start').value = startVal;
+  }
+
   const callerVal = document.getElementById('filter-caller').value.trim();
   const calleeVal = document.getElementById('filter-callee').value.trim();
   const minSent = document.getElementById('filter-min-sent').value;
   const maxSent = document.getElementById('filter-max-sent').value;
-  const limit = parseInt(document.getElementById('filter-limit').value) || 50;
+  const limitVal = parseInt(document.getElementById('filter-limit').value) || LIMIT;
 
   if (startVal) params.set('start_time_from', new Date(startVal).toISOString());
   if (endVal) params.set('start_time_to', new Date(endVal).toISOString());
@@ -100,17 +208,57 @@ async function searchRecordings() {
   if (calleeVal) params.set('callee', calleeVal);
   if (minSent) params.set('min_sentiment', minSent);
   if (maxSent) params.set('max_sentiment', maxSent);
-  params.set('limit', String(limit));
+  params.set('limit', String(limitVal));
+  params.set('offset', String(currentOffset));
 
   try {
     const res = await apiFetch(`${API_BASE}/recordings?${params}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res || !res.ok) throw new Error(`HTTP ${res?.status || 'Unknown'}`);
 
     const data = await res.json();
-    renderResults(data);
+    renderResults(data.recordings);
+    renderPagination(data.total_count, limitVal, currentOffset);
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
+}
+
+function renderPagination(total, limit, offset) {
+  const info = document.getElementById('pagination-info');
+  const controls = document.getElementById('pagination-controls');
+  
+  if (total === 0) {
+    info.textContent = 'Showing 0 of 0';
+    controls.innerHTML = '';
+    return;
+  }
+  
+  const start = offset + 1;
+  const end = Math.min(offset + limit, total);
+  info.textContent = `Showing ${start}-${end} of ${total}`;
+  
+  const totalPages = Math.ceil(total / limit);
+  const currentPage = Math.floor(offset / limit) + 1;
+  
+  let html = '';
+  
+  // Prev button
+  html += `<button class="btn btn-outline-secondary btn-sm" ${currentPage === 1 ? 'disabled' : ''} onclick="searchRecordings(${(currentPage - 2) * limit})">&laquo;</button>`;
+  
+  // Page numbers
+  for (let i = 1; i <= totalPages; i++) {
+    // Smart display logic (show first, last, and +-2 from current)
+    if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+      html += `<button class="btn ${i === currentPage ? 'btn-primary' : 'btn-outline-secondary'} btn-sm" onclick="searchRecordings(${(i - 1) * limit})">${i}</button>`;
+    } else if (i === currentPage - 3 || i === currentPage + 3) {
+      html += `<button class="btn btn-outline-secondary btn-sm" disabled>...</button>`;
+    }
+  }
+  
+  // Next button
+  html += `<button class="btn btn-outline-secondary btn-sm" ${currentPage === totalPages ? 'disabled' : ''} onclick="searchRecordings(${currentPage * limit})">&raquo;</button>`;
+  
+  controls.innerHTML = html;
 }
 
 function renderResults(recordings) {
@@ -153,7 +301,7 @@ function resetFilters() {
   document.getElementById('filter-min-sent').value = '';
   document.getElementById('filter-max-sent').value = '';
   document.getElementById('filter-limit').value = '50';
-  searchRecordings();
+  searchRecordings(0);
 }
 
 // ============ AUDIO PLAYER ============
@@ -241,7 +389,7 @@ function populateAdminForm(config) {
   const fields = [
     'sip_listen_host', 'sip_listen_port',
     'rtp_min_port', 'rtp_max_port',
-    'api_key',
+    'api_key', 'auth_mode', 'timezone', 'locale', 'font_family',
     'transcription_provider', 'transcription_api_key', 'transcription_api_url', 'transcription_api_model',
     'whisper_device', 'whisper_cache_dir',
     'sentiment_provider', 'sentiment_api_key', 'sentiment_api_url', 'sentiment_api_model',
@@ -295,6 +443,10 @@ async function saveSettings(event) {
 
   const payload = {
     api_key: document.querySelector('[name="api_key"]').value.trim(),
+    auth_mode: document.querySelector('[name="auth_mode"]').value,
+    timezone: document.querySelector('[name="timezone"]').value,
+    locale: document.querySelector('[name="locale"]').value,
+    font_family: document.querySelector('[name="font_family"]').value,
     transcription_provider: document.querySelector('[name="transcription_provider"]').value,
     transcription_api_key: document.querySelector('[name="transcription_api_key"]').value.trim(),
     transcription_api_url: document.querySelector('[name="transcription_api_url"]').value.trim(),
@@ -356,6 +508,98 @@ async function triggerCleanup() {
   }
 }
 
+// ============ USER MANAGEMENT ============
+async function loadUsers() {
+  const tbody = document.getElementById('users-table-body');
+  try {
+    const res = await apiFetch(`${API_BASE}/admin/users`);
+    if (!res || !res.ok) throw new Error(`HTTP ${res?.status || 'Unknown'}`);
+    
+    const users = await res.json();
+    if (users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No users found</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = users.map(u => {
+      const isRoot = u.username === 'root';
+      const roleBadgeClass = u.role === 'admin' ? 'bg-danger' : 'bg-primary';
+      
+      let actions = '';
+      if (!isRoot) {
+        actions = `
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${escapeHtml(u.username)}')">Delete</button>
+        `;
+      }
+      
+      return `<tr>
+        <td class="fw-semibold">${escapeHtml(u.username)}</td>
+        <td><span class="badge ${roleBadgeClass}">${escapeHtml(u.role)}</span></td>
+        <td class="text-end px-3">${actions}</td>
+      </tr>`;
+    }).join('');
+    
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Error: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+function showAddUserModal() {
+  document.getElementById('add-user-modal').style.display = 'flex';
+  document.getElementById('add-user-error').style.display = 'none';
+  document.getElementById('add-user-form').reset();
+}
+
+function closeAddUserModal() {
+  document.getElementById('add-user-modal').style.display = 'none';
+}
+
+async function submitAddUser(e) {
+  e.preventDefault();
+  const errorEl = document.getElementById('add-user-error');
+  const btn = e.target.querySelector('button[type="submit"]');
+  
+  const payload = {
+    username: document.getElementById('new-username').value.trim(),
+    password: document.getElementById('new-password').value,
+    role: document.getElementById('new-role').value
+  };
+  
+  try {
+    btn.disabled = true;
+    const res = await apiFetch(`${API_BASE}/admin/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!res || !res.ok) {
+      const errData = await res?.json().catch(() => ({}));
+      throw new Error(errData.detail || 'Failed to create user');
+    }
+    
+    closeAddUserModal();
+    loadUsers();
+  } catch (err) {
+    errorEl.style.display = 'block';
+    errorEl.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteUser(username) {
+  if (!confirm(`Are you sure you want to delete user '${username}'?`)) return;
+  
+  try {
+    const res = await apiFetch(`${API_BASE}/admin/users/${username}`, { method: 'DELETE' });
+    if (!res || !res.ok) throw new Error('Failed to delete user');
+    loadUsers();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
 // ============ UTILITY FUNCTIONS ============
 function formatDateTime(isoStr) {
   if (!isoStr) return '-';
@@ -408,11 +652,11 @@ async function fetchLiveSessions() {
     
     tbody.innerHTML = sessions.map(s => {
       return `<tr>
+        <td title="${s.start_time}">${formatDateTime(s.start_time)}</td>
         <td>${escapeHtml(s.session_id)}</td>
         <td>${escapeHtml(s.caller || '-')}</td>
         <td>${escapeHtml(s.callee || '-')}</td>
         <td>${escapeHtml(s.state)}</td>
-        <td>${formatDateTime(s.start_time)}</td>
       </tr>`;
     }).join('');
   } catch (err) {

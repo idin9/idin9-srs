@@ -72,6 +72,17 @@ class Settings(BaseSettings):
     transcription_enabled: bool = True
     sentiment_enabled: bool = True
 
+    # ── Authentication ──────────────────────────────────
+    auth_mode: str = "api_key" # "api_key", "local", "both"
+    jwt_secret: str = "idin9-srs-super-secret-jwt-key-change-me"
+    jwt_algorithm: str = "HS256"
+    jwt_expiry_hours: int = 24
+
+    # ── Regional & Display ───────────────────────────────
+    timezone: str = "UTC"
+    locale: str = "en_US"
+    font_family: str = "system"
+
     # ── Retention ───────────────────────────────────────
     retention_years: int = 7
     index_db: str = "index.db"
