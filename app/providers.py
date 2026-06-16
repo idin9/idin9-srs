@@ -90,6 +90,7 @@ def transcribe_openai(audio_path: str, api_key: str, api_url: str, model: str) -
 
 def _audio_to_16khz_mono_base64(wav_path: str) -> str:
     import wave as wave_mod
+    from io import BytesIO
     with wave_mod.open(wav_path, "rb") as wf:
         nchannels = wf.getnchannels()
         sampwidth = wf.getsampwidth()
@@ -106,7 +107,13 @@ def _audio_to_16khz_mono_base64(wav_path: str) -> str:
             np.arange(len(samples)),
             samples.astype(np.float64),
         ).astype(np.int16)
-    return base64.b64encode(samples.tobytes()).decode("utf-8")
+    buf = BytesIO()
+    with wave_mod.open(buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(16000)
+        wf.writeframes(samples.tobytes())
+    return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
 def transcribe_ollama(audio_path: str, api_url: str, model: str) -> str:
