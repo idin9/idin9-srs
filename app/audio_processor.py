@@ -21,12 +21,12 @@ A_LAW_TABLE = [0] * 256
 
 def _build_mulaw_table():
     for i in range(256):
-        val = ~i
+        val = ~i & 0xFF
         sign = (val & 0x80) >> 7
         exponent = (val >> 4) & 0x07
         mantissa = val & 0x0F
-        sample = ((mantissa << 3) + 0x84) << (exponent + 2)
-        sample -= 0x84 << 2
+        sample = ((mantissa << 1) + 33) << exponent
+        sample -= 33
         if sign:
             sample = -sample
         MU_LAW_TABLE[i] = sample
@@ -116,7 +116,11 @@ class AudioProcessor:
 
     def feed_audio(self, session_id: str, stream_index: int, payload: bytes, payload_type: int):
         decoder = PAYLOAD_DECODERS.get(payload_type, PAYLOAD_DECODERS.get(PAYLOAD_TYPE_PCMU))
-        samples = decoder(payload)
+        try:
+            samples = decoder(payload)
+        except Exception as e:
+            logger.error("Audio decode error session=%s type=%s: %s", session_id, payload_type, e)
+            return
         if len(samples) == 0:
             return
 
