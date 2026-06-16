@@ -1,5 +1,6 @@
 import asyncio
 import re
+import socket
 import uuid
 import logging
 from datetime import datetime
@@ -142,7 +143,21 @@ class Idin9SrsServer:
         self.on_end_session = on_end_session_callback
         self.loop = loop
         self.transport: Optional[asyncio.DatagramTransport] = None
-        self.server_ip = host if host != "0.0.0.0" else "127.0.0.1"
+        self.server_ip = self._resolve_server_ip(host)
+
+    @staticmethod
+    def _resolve_server_ip(host: str) -> str:
+        if host and host != "0.0.0.0" and host != "::":
+            return host
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.settimeout(0)
+            s.connect(("10.254.254.254", 1))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
 
     async def start(self):
         self.transport, _ = await self.loop.create_datagram_endpoint(
