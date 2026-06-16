@@ -202,6 +202,32 @@ class AudioProcessor:
 
         return filepath
 
+    def split_stereo_wav(self, session_id: str, wav_path: str) -> Optional[list[str]]:
+        if not os.path.exists(wav_path):
+            return None
+        try:
+            with wave.open(wav_path, "rb") as wf:
+                if wf.getnchannels() < 2:
+                    return None
+                frames = wf.readframes(wf.getnframes())
+                sampwidth = wf.getsampwidth()
+                framerate = wf.getframerate()
+            samples = np.frombuffer(frames, dtype=np.int16).reshape(-1, 2)
+            paths = []
+            for ch in range(2):
+                ch_path = os.path.join(self.output_dir, f"{session_id}.ch{ch}.wav")
+                with wave.open(ch_path, "wb") as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(sampwidth)
+                    wf.setframerate(framerate)
+                    wf.writeframes(samples[:, ch].tobytes())
+                paths.append(ch_path)
+            logger.info("Split stereo WAV into channels for session %s", session_id)
+            return paths
+        except Exception as e:
+            logger.error("Failed to split stereo WAV for session %s: %s", session_id, e)
+            return None
+
     def get_wav_path(self, session_id: str) -> Optional[str]:
         filepath = os.path.join(self.output_dir, f"{session_id}.wav")
         if os.path.exists(filepath):

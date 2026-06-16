@@ -177,14 +177,46 @@ class SessionManager:
                 if self.transcription_enabled:
                     from .config import settings as cfg
                     lang = cfg.whisper_language.strip() or None
-                    transcript = await self.transcriber.transcribe(wav_path, language=lang)
-                    info.transcript = transcript
-                    logger.info("Session %s transcription complete (%d chars)", session_id, len(transcript))
+                    ch_paths = self.audio_processor.split_stereo_wav(session_id, wav_path)
+                    if ch_paths and len(ch_paths) == 2:
+                        segs0, segs1 = await asyncio.gather(
+                            self.transcriber.transcribe_segments(ch_paths[0], language=lang),
+                            self.transcriber.transcribe_segments(ch_paths[1], language=lang),
+                        )
+                        label0 = info.caller or "Agent"
+                        label1 = info.callee or "Customer"
+                        merged = []
+                        i = j = 0
+                        while i < len(segs0) and j < len(segs1):
+                            if segs0[i][0] <= segs1[j][0]:
+                                merged.append(f"[{label0} ({segs0[i][0]:.1f}s)]: {segs0[i][2]}")
+                                i += 1
+                            else:
+                                merged.append(f"[{label1} ({segs1[j][0]:.1f}s)]: {segs1[j][2]}")
+                                j += 1
+                        for ii in range(i, len(segs0)):
+                            merged.append(f"[{label0} ({segs0[ii][0]:.1f}s)]: {segs0[ii][2]}")
+                        for jj in range(j, len(segs1)):
+                            merged.append(f"[{label1} ({segs1[jj][0]:.1f}s)]: {segs1[jj][2]}")
+                        info.transcript = "\n".join(merged) if merged else ""
+                    else:
+                        transcript = await self.transcriber.transcribe(wav_path, language=lang)
+                        info.transcript = transcript
+                    logger.info("Session %s transcription complete (%d chars)", session_id, len(info.transcript or ""))
                 else:
                     info.transcript = "[transcription disabled]"
             except Exception as e:
                 logger.error("Session %s transcription error: %s", session_id, e)
                 info.transcript = "[transcription failed]"
+
+            # Clean up temp channel WAVs
+            for ch in (0, 1):
+                ch_path = os.path.join(self.audio_processor.output_dir, f"{session_id}.ch{ch}.wav")
+                try:
+                    if os.path.exists(ch_path):
+                        os.remove(ch_path)
+                except OSError:
+                    pass
 
             try:
                 if self.sentiment_enabled and info.transcript and info.transcript not in ("[transcription disabled]", "[transcription failed]"):
