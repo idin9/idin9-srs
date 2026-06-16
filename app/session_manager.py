@@ -166,15 +166,24 @@ class SessionManager:
         final_path = None
         try:
             wav_path = self.audio_processor.save_wav(session_id)
-            if wav_path:
+        except Exception as e:
+            logger.error("Session %s save_wav error: %s", session_id, e)
+            wav_path = None
+
+        if wav_path:
+            try:
                 if self.transcription_enabled:
                     transcript = await self.transcriber.transcribe(wav_path)
                     info.transcript = transcript
                     logger.info("Session %s transcription complete (%d chars)", session_id, len(transcript))
                 else:
                     info.transcript = "[transcription disabled]"
+            except Exception as e:
+                logger.error("Session %s transcription error: %s", session_id, e)
+                info.transcript = "[transcription failed]"
 
-                if self.sentiment_enabled and info.transcript and info.transcript != "[transcription disabled]":
+            try:
+                if self.sentiment_enabled and info.transcript and info.transcript not in ("[transcription disabled]", "[transcription failed]"):
                     result = await self.sentiment_analyzer.analyze(info.transcript)
                     info.sentiment_score = result.get("score", 1.0)
                     info.sentiment_label = result.get("label", "neutral")
@@ -182,11 +191,18 @@ class SessionManager:
                 else:
                     info.sentiment_score = 1.0
                     info.sentiment_label = "neutral"
+            except Exception as e:
+                logger.error("Session %s sentiment error: %s", session_id, e)
+                info.sentiment_score = 1.0
+                info.sentiment_label = "neutral"
 
-                # Run audio post-processing (Opus conversion and encryption)
+            try:
                 final_path = self.audio_processor.process_final_audio(session_id, wav_path)
-        except Exception as e:
-            logger.error("Session %s processing error: %s", session_id, e)
+            except Exception as e:
+                logger.error("Session %s final audio processing error: %s", session_id, e)
+
+        if not final_path:
+            final_path = wav_path
 
         info.state = SessionState.completed
         info.end_time = datetime.utcnow().isoformat()
