@@ -120,6 +120,8 @@ async def lifespan(app: FastAPI):
     app.state.session_manager = sm
     app.state.indexer = indexer
 
+    sm.start_stale_session_checker()
+
     idin9_srs_server = Idin9SrsServer(
         host=settings.sip_listen_host,
         port=settings.sip_listen_port,
@@ -142,6 +144,7 @@ async def lifespan(app: FastAPI):
 
     if idin9_srs_server:
         idin9_srs_server.stop()
+    sm.stop_stale_session_checker()
     logger.info("Server stopped")
 
 

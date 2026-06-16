@@ -18,6 +18,7 @@ Systemd unit: `scripts/idin9-srs.service` (uses `run.py` which does not exist at
 - **`.env`** (gitignored) — primary, loaded by `pydantic-settings`. Copy `.env.example` to start.
 - **`config.override.json`** (gitignored) — runtime overrides merged at startup and writable via `PUT /api/v1/admin/settings`. Values override `.env`.
 - SIP/RTP ports require restart; AI model changes require restart.
+- Session auto-stop after 300s of no RTP activity (`session_timeout_seconds`, 0=off). Stale checker runs every 30s.
 
 ## API
 

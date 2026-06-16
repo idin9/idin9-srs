@@ -255,6 +255,7 @@ def create_router():
             "audio_format": cfg.audio_format,
             "encryption_enabled": cfg.encryption_enabled,
             "encryption_password": cfg.encryption_password,
+            "session_timeout_seconds": cfg.session_timeout_seconds,
         }
 
     @router.put(
@@ -290,6 +291,7 @@ def create_router():
             "audio_format",
             "encryption_enabled",
             "encryption_password",
+            "session_timeout_seconds",
         }
 
         project_root = Path(__file__).parent.parent

@@ -1,4 +1,5 @@
 import asyncio
+import time
 import logging
 import threading
 from typing import Optional, Callable
@@ -40,6 +41,9 @@ class SessionManager:
         self._next_rtp_port = self.rtp_min_port
         self._rtp_port_lock = threading.Lock()
         self._used_rtp_ports: set[int] = set()
+        # Track last audio receive time per session (monotonic clock)
+        self._last_audio_time: dict[str, float] = {}
+        self._stale_check_task: Optional[asyncio.Task] = None
 
     @property
     def transcription_enabled(self) -> bool:
@@ -136,6 +140,7 @@ class SessionManager:
         return info
 
     def _on_audio(self, session_id: str, stream_index: int, payload: bytes, payload_type: int):
+        self._last_audio_time[session_id] = time.monotonic()
         self.audio_processor.feed_audio(session_id, stream_index, payload, payload_type)
 
     async def stop_session(self, session_id: str) -> Optional[SessionInfo]:
@@ -158,27 +163,30 @@ class SessionManager:
         duration = self.audio_processor.get_audio_duration(session_id)
         logger.info("Session %s recorded %s seconds", session_id, duration)
 
-        wav_path = self.audio_processor.save_wav(session_id)
         final_path = None
-        if wav_path:
-            if self.transcription_enabled:
-                transcript = await self.transcriber.transcribe(wav_path)
-                info.transcript = transcript
-                logger.info("Session %s transcription complete (%d chars)", session_id, len(transcript))
-            else:
-                info.transcript = "[transcription disabled]"
+        try:
+            wav_path = self.audio_processor.save_wav(session_id)
+            if wav_path:
+                if self.transcription_enabled:
+                    transcript = await self.transcriber.transcribe(wav_path)
+                    info.transcript = transcript
+                    logger.info("Session %s transcription complete (%d chars)", session_id, len(transcript))
+                else:
+                    info.transcript = "[transcription disabled]"
 
-            if self.sentiment_enabled and info.transcript and info.transcript != "[transcription disabled]":
-                result = await self.sentiment_analyzer.analyze(info.transcript)
-                info.sentiment_score = result.get("score", 1.0)
-                info.sentiment_label = result.get("label", "neutral")
-                logger.info("Session %s sentiment: %s (%.1f)", session_id, info.sentiment_label, info.sentiment_score)
-            else:
-                info.sentiment_score = 1.0
-                info.sentiment_label = "neutral"
+                if self.sentiment_enabled and info.transcript and info.transcript != "[transcription disabled]":
+                    result = await self.sentiment_analyzer.analyze(info.transcript)
+                    info.sentiment_score = result.get("score", 1.0)
+                    info.sentiment_label = result.get("label", "neutral")
+                    logger.info("Session %s sentiment: %s (%.1f)", session_id, info.sentiment_label, info.sentiment_score)
+                else:
+                    info.sentiment_score = 1.0
+                    info.sentiment_label = "neutral"
 
-            # Run audio post-processing (Opus conversion and encryption)
-            final_path = self.audio_processor.process_final_audio(session_id, wav_path)
+                # Run audio post-processing (Opus conversion and encryption)
+                final_path = self.audio_processor.process_final_audio(session_id, wav_path)
+        except Exception as e:
+            logger.error("Session %s processing error: %s", session_id, e)
 
         info.state = SessionState.completed
         info.end_time = datetime.utcnow().isoformat()
@@ -202,6 +210,9 @@ class SessionManager:
                 transcript=info.transcript,
             )
 
+        self._last_audio_time.pop(session_id, None)
+        self._sessions.pop(session_id, None)
+
         return info
 
     def get_session(self, session_id: str) -> Optional[SessionInfo]:
@@ -210,8 +221,48 @@ class SessionManager:
     def list_sessions(self) -> list[SessionInfo]:
         return list(self._sessions.values())
 
+    def start_stale_session_checker(self):
+        """Start background task that auto-stops sessions with no recent RTP activity."""
+        if self._stale_check_task is not None:
+            return
+        self._stale_check_task = asyncio.ensure_future(self._stale_check_loop(), loop=self.loop)
+
+    def stop_stale_session_checker(self):
+        if self._stale_check_task is not None:
+            self._stale_check_task.cancel()
+            self._stale_check_task = None
+
+    async def _stale_check_loop(self):
+        from .config import settings as cfg
+        while True:
+            try:
+                await asyncio.sleep(30)
+                timeout = cfg.session_timeout_seconds
+                if timeout <= 0:
+                    continue
+                now = time.monotonic()
+                stale = []
+                for sid, last_time in list(self._last_audio_time.items()):
+                    if sid not in self._sessions:
+                        continue
+                    if self._sessions[sid].state != SessionState.recording:
+                        continue
+                    if now - last_time > timeout:
+                        stale.append(sid)
+                for sid in stale:
+                    logger.info("Auto-stopping stale session %s (no RTP for >%ss)", sid, timeout)
+                    try:
+                        await self.stop_session(sid)
+                    except Exception as e:
+                        logger.error("Failed to auto-stop session %s: %s", sid, e)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error("Stale session checker error: %s", e)
+
     def cleanup(self, session_id: str):
         self._sessions.pop(session_id, None)
+        self._last_audio_time.pop(session_id, None)
         keys = [k for k in self._rtp_sessions if k[0] == session_id]
         for key in keys:
             rtp_session = self._rtp_sessions.pop(key, None)

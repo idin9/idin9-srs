@@ -263,17 +263,22 @@ class Idin9SrsServer:
 
     async def _handle_bye(self, msg: dict, addr: tuple):
         call_id = msg["headers"].get("Call-ID", "")
-        # Send 200 OK for BYE
-        response = build_response(
-            200, "OK", msg,
-            f"idin9-srs@{self.server_ip}:{self.port}",
-            [0],
-            self.server_ip,
-        )
-        self.transport.sendto(response, addr)
+        try:
+            response = build_response(
+                200, "OK", msg,
+                f"idin9-srs@{self.server_ip}:{self.port}",
+                [0],
+                self.server_ip,
+            )
+            self.transport.sendto(response, addr)
+        except Exception as e:
+            logger.error("Failed to send 200 OK for BYE: %s", e)
         logger.info("Session %s ended via BYE", call_id)
         if self.on_end_session:
-            await self.on_end_session(call_id)
+            try:
+                await self.on_end_session(call_id)
+            except Exception as e:
+                logger.error("Failed to stop session %s via BYE: %s", call_id, e)
 
 
 class Idin9SrsProtocol(asyncio.DatagramProtocol):
