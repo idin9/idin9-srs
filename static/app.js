@@ -9,6 +9,21 @@ let currentUserRole = null;
 let currentOffset = 0;
 const LIMIT = 50;
 
+// ── Session Idle Timeout ────────────────────
+const SESSION_TIMEOUT_MS = 300000;
+let sessionTimer = null;
+
+function resetSessionTimer() {
+  if (sessionTimer) clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(logout, SESSION_TIMEOUT_MS);
+}
+
+function startSessionWatchdog() {
+  const events = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+  events.forEach(ev => document.addEventListener(ev, resetSessionTimer));
+  resetSessionTimer();
+}
+
 function getAuthHeader() {
   const token = localStorage.getItem('idin9_auth_token');
   if (token) return `Bearer ${token}`;
@@ -28,6 +43,7 @@ function setAuthToken(token) {
 }
 
 function logout() {
+  if (sessionTimer) clearTimeout(sessionTimer);
   localStorage.removeItem('idin9_auth_token');
   localStorage.removeItem('idin9_api_key');
   document.getElementById('app-shell').style.display = 'none';
@@ -83,12 +99,15 @@ async function apiFetch(url, options = {}) {
         await showApp();
       } else {
         document.getElementById('app-shell').style.display = 'flex';
+        document.getElementById('login-modal').style.display = 'none';
       }
     } else {
       document.getElementById('app-shell').style.display = 'flex';
+      document.getElementById('login-modal').style.display = 'none';
     }
   } catch {
     document.getElementById('app-shell').style.display = 'flex';
+    document.getElementById('login-modal').style.display = 'none';
   }
 })();
 
@@ -100,6 +119,7 @@ async function showApp() {
       currentUserRole = user.role;
       document.getElementById('app-shell').style.display = 'flex';
       document.getElementById('login-modal').style.display = 'none';
+      startSessionWatchdog();
       applyRolePermissions();
     } else {
       document.getElementById('app-shell').style.display = 'none';
