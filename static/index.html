@@ -291,6 +291,9 @@
           <li class="nav-item">
             <button class="nav-link" id="btn-sub-console" onclick="switchAdminSubTab('console')">Live Console</button>
           </li>
+          <li class="nav-item">
+            <button class="nav-link" id="btn-sub-utility" onclick="switchAdminSubTab('utility')">Utility</button>
+          </li>
         </ul>
       </div>
 
@@ -584,16 +587,19 @@
         </div>
       </form>
 
-      <!-- System Actions Card -->
-      <div class="card border-warning shadow-sm">
-        <div class="card-header bg-warning-subtle py-3 border-warning">
-          <h5 class="card-title mb-0 text-warning-emphasis fw-bold"><i class="bi bi-activity me-2"></i>System Actions &amp; Maintenance</h5>
-        </div>
-        <div class="card-body d-flex align-items-center gap-3">
-          <button class="btn btn-warning" onclick="triggerCleanup()"><i class="bi bi-trash3 me-2"></i>Run Retention Cleanup</button>
-          <span id="cleanup-status" class="fw-semibold small"></span>
-        </div>
       </div>
+
+      <!-- Utility Sub-Tab -->
+      <div id="sub-admin-utility" class="admin-sub-content" style="display:none">
+        <div class="card border-warning shadow-sm">
+          <div class="card-header bg-warning-subtle py-3 border-warning">
+            <h5 class="card-title mb-0 text-warning-emphasis fw-bold"><i class="bi bi-activity me-2"></i>System Actions &amp; Maintenance</h5>
+          </div>
+          <div class="card-body d-flex align-items-center gap-3">
+            <button class="btn btn-warning" onclick="triggerCleanup()"><i class="bi bi-trash3 me-2"></i>Run Retention Cleanup</button>
+            <span id="cleanup-status" class="fw-semibold small"></span>
+          </div>
+        </div>
       </div>
 
       <!-- User Management Sub-Tab -->
