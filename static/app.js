@@ -74,7 +74,7 @@ async function apiFetch(url, options = {}) {
   return res;
 }
 
-// Check if auth is needed on load
+// Check if auth is needed on load — always requires login
 (async function checkAuth() {
   try {
     const res = await fetch(`${API_BASE}/info`);
@@ -84,30 +84,13 @@ async function apiFetch(url, options = {}) {
       if (info.font_family && info.font_family !== 'system') {
         document.body.style.fontFamily = info.font_family;
       }
-      
-      if (info.auth_required && !getAuthHeader() && !getApiKey()) {
-        if (info.auth_mode === 'api_key') {
-          const key = prompt('This server requires an API key. Please enter it:');
-          if (key) {
-            setApiKey(key);
-            await showApp();
-          }
-        } else {
-          document.getElementById('login-modal').style.display = 'flex';
-        }
-      } else if (getAuthHeader() || getApiKey()) {
-        await showApp();
-      } else {
-        document.getElementById('app-shell').style.display = 'flex';
-        document.getElementById('login-modal').style.display = 'none';
-      }
-    } else {
-      document.getElementById('app-shell').style.display = 'flex';
-      document.getElementById('login-modal').style.display = 'none';
     }
-  } catch {
-    document.getElementById('app-shell').style.display = 'flex';
-    document.getElementById('login-modal').style.display = 'none';
+  } catch {}
+
+  if (getAuthHeader() || getApiKey()) {
+    await showApp();
+  } else {
+    document.getElementById('login-modal').style.display = 'flex';
   }
 })();
 
