@@ -68,6 +68,18 @@
     .sentiment-low { background-color: #d1e7dd; color: #0f5132; }
     .sentiment-mid { background-color: #fff3cd; color: #664d03; }
     .sentiment-high { background-color: #f8d7da; color: #842029; }
+    .badword-badge {
+      font-weight: 600;
+      padding: 0.35em 0.65em;
+      border-radius: 30px;
+      background-color: #f5c6cb;
+      color: #721c24;
+      margin-left: 0.5rem;
+      font-size: 0.85em;
+    }
+    .gen-btn {
+      margin-left: 0.25rem;
+    }
     /* Switch styling */
     .switch {
       position: relative;
@@ -130,6 +142,11 @@
       <li>
         <button class="nav-link w-100 text-start tab-btn link-dark" data-tab="admin" onclick="switchTab('admin')">
           <i class="bi bi-sliders me-2"></i> Administrator
+        </button>
+      </li>
+      <li>
+        <button class="nav-link w-100 text-start tab-btn link-dark" data-tab="utility" onclick="switchTab('utility')">
+          <i class="bi bi-tools me-2"></i> Utility
         </button>
       </li>
     </ul>
@@ -218,7 +235,7 @@
                 </tr>
               </thead>
               <tbody id="results-body">
-                <tr><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-2 d-block mb-2"></i>Use the search filters above to load recordings.</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-2 d-block mb-2"></i>Use the search filters above to load recordings.</td></tr>
               </tbody>
             </table>
           </div>
@@ -553,17 +570,6 @@
           </div>
         </div>
       </form>
-
-      <!-- System Actions Card -->
-      <div class="card border-warning shadow-sm">
-        <div class="card-header bg-warning-subtle py-3 border-warning">
-          <h5 class="card-title mb-0 text-warning-emphasis fw-bold"><i class="bi bi-activity me-2"></i>System Actions &amp; Maintenance</h5>
-        </div>
-        <div class="card-body d-flex align-items-center gap-3">
-          <button class="btn btn-warning" onclick="triggerCleanup()"><i class="bi bi-trash3 me-2"></i>Run Retention Cleanup</button>
-          <span id="cleanup-status" class="fw-semibold small"></span>
-        </div>
-      </div>
       </div>
 
       <!-- User Management Sub-Tab -->
@@ -640,6 +646,45 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ UTILITY TAB ============ -->
+    <section id="tab-utility" class="tab-content" style="display:none">
+      <div class="mb-4">
+        <h1 class="h3 fw-bold text-dark mb-1">Utility &amp; Maintenance</h1>
+        <p class="text-muted mb-0">Batch processing, system maintenance, and administrative tools</p>
+      </div>
+
+      <!-- Batch Generate Card -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+          <h5 class="card-title mb-0 text-secondary fw-semibold"><i class="bi bi-magic me-2"></i>Batch Generate Transcript &amp; Sentiment</h5>
+        </div>
+        <div class="card-body">
+          <p class="text-muted small mb-3">Generate transcript and sentiment analysis for recordings that are missing this data. Records that already have transcript and sentiment will be skipped.</p>
+          <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-primary" onclick="batchGenerate()"><i class="bi bi-play-circle me-2"></i>Start Batch Generation</button>
+            <span id="batch-status" class="fw-semibold small"></span>
+          </div>
+          <div id="batch-progress" class="mt-3" style="display:none">
+            <div class="progress" style="height: 24px;">
+              <div id="batch-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;">0%</div>
+            </div>
+            <div id="batch-progress-text" class="text-muted small mt-2"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Actions Card -->
+      <div class="card border-warning shadow-sm">
+        <div class="card-header bg-warning-subtle py-3 border-warning">
+          <h5 class="card-title mb-0 text-warning-emphasis fw-bold"><i class="bi bi-activity me-2"></i>System Actions &amp; Maintenance</h5>
+        </div>
+        <div class="card-body d-flex align-items-center gap-3">
+          <button class="btn btn-warning" onclick="triggerCleanup()"><i class="bi bi-trash3 me-2"></i>Run Retention Cleanup</button>
+          <span id="cleanup-status" class="fw-semibold small"></span>
         </div>
       </div>
     </section>

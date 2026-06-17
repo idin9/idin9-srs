@@ -9,6 +9,7 @@ from .rtp_session import RtpSession
 from .audio_processor import AudioProcessor
 from .transcriber import Transcriber
 from .sentiment_analyzer import SentimentAnalyzer
+from .profanity_analyzer import ProfanityAnalyzer
 from .indexer import RecordingIndexer
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ class SessionManager:
         self.audio_processor = audio_processor
         self.transcriber = transcriber
         self.sentiment_analyzer = sentiment_analyzer
+        self.profanity_analyzer = ProfanityAnalyzer()
         self.indexer = indexer
         self.rtp_host = rtp_host
         self.rtp_min_port, self.rtp_max_port = rtp_port_range
@@ -177,6 +179,11 @@ class SessionManager:
                 info.sentiment_score = 1.0
                 info.sentiment_label = "neutral"
 
+            # Profanity analysis
+            profanity_result = self.profanity_analyzer.analyze(info.transcript or "")
+            info.bad_word_percentage = profanity_result.get("bad_word_percentage", 0.0)
+            logger.info("Session %s bad words: %.1f%% (%d/%d)", session_id, info.bad_word_percentage, profanity_result.get("bad_word_count", 0), profanity_result.get("total_word_count", 0))
+
             # Run audio post-processing (Opus conversion and encryption)
             final_path = self.audio_processor.process_final_audio(session_id, wav_path)
 
@@ -200,6 +207,7 @@ class SessionManager:
                 sentiment_score=info.sentiment_score,
                 sentiment_label=info.sentiment_label,
                 transcript=info.transcript,
+                bad_word_percentage=info.bad_word_percentage,
             )
 
         return info

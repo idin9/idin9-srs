@@ -94,13 +94,15 @@ async function apiFetch(url, options = {}) {
 
 function applyRolePermissions() {
   if (currentUserRole === 'auditor') {
-    // Hide Admin tabs
+    // Hide Admin and Utility tabs
     document.querySelector('[data-tab="admin"]').style.display = 'none';
+    document.querySelector('[data-tab="utility"]').style.display = 'none';
     if (document.querySelector('.tab-btn.active').dataset.tab !== 'auditor') {
       switchTab('auditor');
     }
   } else {
     document.querySelector('[data-tab="admin"]').style.display = 'block';
+    document.querySelector('[data-tab="utility"]').style.display = 'block';
   }
 }
 
@@ -180,7 +182,7 @@ function switchAdminSubTab(subTab) {
 async function searchRecordings(offset = 0) {
   currentOffset = offset;
   const tbody = document.getElementById('results-body');
-  tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Searching...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">Searching...</td></tr>';
 
   const params = new URLSearchParams();
 
@@ -219,7 +221,7 @@ async function searchRecordings(offset = 0) {
     renderResults(data.recordings);
     renderPagination(data.total_count, limitVal, currentOffset);
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">Error: ${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-msg">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -266,7 +268,7 @@ function renderResults(recordings) {
   const statsBar = document.getElementById('stats-bar');
 
   if (!recordings || recordings.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">No recordings found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">No recordings found.</td></tr>';
     statsBar.innerHTML = '';
     return;
   }
@@ -276,6 +278,7 @@ function renderResults(recordings) {
   tbody.innerHTML = recordings.map(r => {
     const score = r.sentiment_score || 1.0;
     const scoreClass = score >= 7 ? 'sentiment-high' : score >= 4 ? 'sentiment-mid' : 'sentiment-low';
+    const badWordPct = r.bad_word_percentage || 0.0;
     const dt = formatDateTime(r.end_time);
     const dur = formatDuration(r.duration);
 
@@ -284,9 +287,13 @@ function renderResults(recordings) {
       <td>${escapeHtml(r.caller || '-')}</td>
       <td>${escapeHtml(r.callee || '-')}</td>
       <td>${dur}</td>
-      <td><span class="sentiment-badge ${scoreClass}">${score.toFixed(1)}</span></td>
+      <td>
+        <span class="sentiment-badge ${scoreClass}" title="Sentiment: ${score.toFixed(1)}">${score.toFixed(1)}</span>
+        ${badWordPct > 0 ? `<span class="badword-badge" title="Bad words: ${badWordPct}% of transcript"><i class="bi bi-emoji-frown"></i>${badWordPct.toFixed(1)}%</span>` : ''}
+      </td>
       <td class="actions-cell">
         <button class="btn btn-primary btn-sm" onclick="playAudio('${encodeURIComponent(r.session_id)}')">Play</button>
+        <button class="btn btn-info btn-sm gen-btn" data-session="${encodeURIComponent(r.session_id)}" onclick="generateSingle('${encodeURIComponent(r.session_id)}')"><i class="bi bi-magic"></i> Gen</button>
         <a href="${API_BASE}/recordings/${encodeURIComponent(r.session_id)}/audio" class="btn btn-secondary btn-sm" download>Export</a>
       </td>
     </tr>`;
@@ -343,9 +350,12 @@ async function playAudio(sessionId) {
     const res = await apiFetch(`${API_BASE}/record/${sessionId}`);
     if (res.ok) {
       const data = await res.json();
+      const badWordInfo = data.bad_word_percentage !== undefined && data.bad_word_percentage > 0
+        ? `<br><strong>Bad Words:</strong> ${data.bad_word_percentage.toFixed(1)}%`
+        : '';
       info.innerHTML = `
         <strong>Transcript:</strong> ${escapeHtml(data.transcript || 'N/A')}<br>
-        <strong>Sentiment:</strong> ${data.sentiment_score !== undefined ? data.sentiment_score.toFixed(1) + ' (' + (data.sentiment_label || '') + ')' : 'N/A'}
+        <strong>Sentiment:</strong> ${data.sentiment_score !== undefined ? data.sentiment_score.toFixed(1) + ' (' + (data.sentiment_label || '') + ')' : 'N/A'}${badWordInfo}
       `;
     }
   } catch {}
@@ -371,17 +381,19 @@ async function loadAdminConfig() {
 
   form.style.display = 'none';
   loading.style.display = 'block';
+  loading.innerHTML = '<div class="spinner-border text-primary mb-2" role="status"></div><div>Loading configuration parameters...</div>';
 
   try {
     const res = await apiFetch(`${API_BASE}/admin/settings`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res || !res.ok) throw new Error(`HTTP ${res?.status || 'Unknown'}`);
 
     const config = await res.json();
     populateAdminForm(config);
     loading.style.display = 'none';
     form.style.display = 'block';
   } catch (err) {
-    loading.textContent = `Error loading config: ${err.message}`;
+    loading.style.display = 'block';
+    loading.innerHTML = `<div class="text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Error loading config: ${escapeHtml(err.message)}</div><div class="mt-2"><button class="btn btn-sm btn-outline-danger" onclick="loadAdminConfig()">Retry</button></div>`;
   }
 }
 
@@ -600,6 +612,46 @@ async function deleteUser(username) {
   }
 }
 
+async function generateSingle(sessionId) {
+  // Find the button and show loading state
+  const btn = document.querySelector(`.gen-btn[data-session="${encodeURIComponent(sessionId)}"]`);
+  if (!btn) return;
+  
+  const originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  
+  try {
+    const res = await apiFetch(`${API_BASE}/recordings/${sessionId}/generate`, {
+      method: 'POST',
+    });
+    
+    if (!res || !res.ok) {
+      const errData = await res?.json().catch(() => ({}));
+      throw new Error(errData.detail || 'Failed to generate');
+    }
+    
+    const data = await res.json();
+    btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+    btn.classList.remove('btn-info');
+    btn.classList.add('btn-success');
+    
+    setTimeout(() => {
+      btn.innerHTML = originalHTML;
+      btn.classList.remove('btn-success');
+      btn.classList.add('btn-info');
+      btn.disabled = false;
+    }, 2000);
+    
+    // Refresh the results to show updated data
+    searchRecordings(currentOffset);
+  } catch (err) {
+    btn.innerHTML = originalHTML;
+    btn.disabled = false;
+    alert(`Generation failed: ${err.message}`);
+  }
+}
+
 // ============ UTILITY FUNCTIONS ============
 function formatDateTime(isoStr) {
   if (!isoStr) return '-';
@@ -703,5 +755,43 @@ function toggleLogRefresh() {
     startLogsPolling();
   } else {
     stopLogsPolling();
+  }
+}
+
+// ============ BATCH GENERATE ============
+async function batchGenerate() {
+  const statusEl = document.getElementById('batch-status');
+  const progressEl = document.getElementById('batch-progress');
+  const progressBar = document.getElementById('batch-progress-bar');
+  const progressText = document.getElementById('batch-progress-text');
+  
+  statusEl.textContent = 'Starting batch generation...';
+  statusEl.style.color = '#666';
+  progressEl.style.display = 'block';
+  progressBar.style.width = '0%';
+  progressBar.textContent = '0%';
+  progressText.textContent = 'Analyzing recordings...';
+  
+  try {
+    const res = await apiFetch(`${API_BASE}/maintenance/batch-generate`, {
+      method: 'POST',
+    });
+    
+    if (!res || !res.ok) {
+      const errData = await res?.json().catch(() => ({}));
+      throw new Error(errData.detail || `HTTP ${res?.status || 'Unknown'}`);
+    }
+    
+    const data = await res.json();
+    
+    progressBar.style.width = '100%';
+    progressBar.textContent = '100%';
+    progressText.textContent = data.message;
+    statusEl.textContent = 'Complete!';
+    statusEl.style.color = '#28a745';
+  } catch (err) {
+    statusEl.textContent = `Error: ${err.message}`;
+    statusEl.style.color = '#dc3545';
+    progressText.textContent = 'Generation failed.';
   }
 }

@@ -417,6 +417,177 @@ def create_router():
             "message": f"Cleaned up {deleted_count} recordings older than {cfg.retention_years} years",
         }
 
+    @router.post(
+        "/maintenance/batch-generate",
+        summary="Batch generate transcript and sentiment for recordings missing them",
+    )
+    async def batch_generate(request: Request, user: dict = Depends(verify_admin)):
+        """
+        Find recordings without transcript or sentiment and process them.
+        Returns a job_id that can be used to check progress.
+        """
+        import uuid
+        from .config import settings as cfg
+
+        indexer = request.app.state.indexer
+        sm = request.app.state.session_manager
+
+        # Find recordings missing transcript or sentiment
+        all_records = indexer.list_recordings(limit=10000, offset=0)
+        to_process = []
+        for r in all_records:
+            transcript = r.get("transcript", "")
+            sentiment_score = r.get("sentiment_score", 1.0)
+            # Skip if has valid transcript and sentiment was explicitly computed
+            if not transcript or transcript == "[transcription disabled]" or sentiment_score == 1.0:
+                to_process.append(r)
+
+        if not to_process:
+            return {
+                "status": "completed",
+                "total": 0,
+                "processed": 0,
+                "skipped": 0,
+                "message": "All recordings already have transcript and sentiment data.",
+            }
+
+        # Process each recording
+        processed = 0
+        skipped = 0
+        errors = 0
+
+        for record in to_process:
+            session_id = record["session_id"]
+            wav_path = record.get("wav_path", "")
+
+            if not wav_path or not os.path.exists(wav_path):
+                skipped += 1
+                logger.warning("Batch generate: no audio file for session %s", session_id)
+                continue
+
+            try:
+                # Transcribe if needed
+                transcript = record.get("transcript", "")
+                if not transcript or transcript == "[transcription disabled]":
+                    if cfg.transcription_enabled:
+                        transcript = await sm.transcriber.transcribe(wav_path)
+                    else:
+                        transcript = "[transcription disabled]"
+
+                # Sentiment if needed
+                sentiment_score = record.get("sentiment_score", 1.0)
+                sentiment_label = record.get("sentiment_label", "neutral")
+                bad_word_percentage = record.get("bad_word_percentage", 0.0)
+
+                if not transcript or sentiment_score == 1.0:
+                    if cfg.sentiment_enabled and transcript and transcript != "[transcription disabled]":
+                        sent_result = await sm.sentiment_analyzer.analyze(transcript)
+                        sentiment_score = sent_result.get("score", 1.0)
+                        sentiment_label = sent_result.get("label", "neutral")
+
+                    # Always compute bad word percentage
+                    profanity_result = sm.profanity_analyzer.analyze(transcript or "")
+                    bad_word_percentage = profanity_result.get("bad_word_percentage", 0.0)
+
+                # Update the recording in the indexer
+                indexer.add_recording(
+                    session_id=session_id,
+                    caller=record.get("caller"),
+                    callee=record.get("callee"),
+                    start_time=record.get("start_time", ""),
+                    end_time=record.get("end_time", ""),
+                    wav_path=wav_path,
+                    duration=record.get("duration", 0.0),
+                    sentiment_score=sentiment_score,
+                    sentiment_label=sentiment_label,
+                    transcript=transcript,
+                    bad_word_percentage=bad_word_percentage,
+                )
+
+                processed += 1
+            except Exception as e:
+                errors += 1
+                logger.error("Batch generate error for session %s: %s", session_id, e)
+
+        return {
+            "status": "completed",
+            "total": len(to_process),
+            "processed": processed,
+            "skipped": skipped,
+            "errors": errors,
+            "message": f"Processed {processed}/{len(to_process)} recordings ({skipped} skipped, {errors} errors)",
+        }
+
+    @router.post(
+        "/recordings/{session_id}/generate",
+        summary="Generate transcript and sentiment for a single recording",
+    )
+    async def generate_single(session_id: str, request: Request, user: dict = Depends(verify_admin)):
+        """Generate transcript and sentiment for a single recording that is missing them."""
+        _validate_uuid(session_id)
+        indexer = request.app.state.indexer
+        sm = request.app.state.session_manager
+        from .config import settings as cfg
+
+        record = indexer.get_recording(session_id)
+        if not record:
+            raise HTTPException(404, detail=f"Recording {session_id} not found")
+
+        wav_path = record.get("wav_path", "")
+        if not wav_path or not os.path.exists(wav_path):
+            raise HTTPException(404, detail=f"Audio file for recording {session_id} not found")
+
+        try:
+            # Transcribe if needed
+            transcript = record.get("transcript", "")
+            if not transcript or transcript == "[transcription disabled]":
+                if cfg.transcription_enabled:
+                    transcript = await sm.transcriber.transcribe(wav_path)
+                else:
+                    transcript = "[transcription disabled]"
+
+            # Sentiment if needed
+            sentiment_score = record.get("sentiment_score", 1.0)
+            sentiment_label = record.get("sentiment_label", "neutral")
+            bad_word_percentage = record.get("bad_word_percentage", 0.0)
+
+            if not transcript or sentiment_score == 1.0:
+                if cfg.sentiment_enabled and transcript and transcript != "[transcription disabled]":
+                    sent_result = await sm.sentiment_analyzer.analyze(transcript)
+                    sentiment_score = sent_result.get("score", 1.0)
+                    sentiment_label = sent_result.get("label", "neutral")
+
+                # Always compute bad word percentage
+                profanity_result = sm.profanity_analyzer.analyze(transcript or "")
+                bad_word_percentage = profanity_result.get("bad_word_percentage", 0.0)
+
+            # Update the recording
+            indexer.add_recording(
+                session_id=session_id,
+                caller=record.get("caller"),
+                callee=record.get("callee"),
+                start_time=record.get("start_time", ""),
+                end_time=record.get("end_time", ""),
+                wav_path=wav_path,
+                duration=record.get("duration", 0.0),
+                sentiment_score=sentiment_score,
+                sentiment_label=sentiment_label,
+                transcript=transcript,
+                bad_word_percentage=bad_word_percentage,
+            )
+
+            return {
+                "status": "success",
+                "session_id": session_id,
+                "transcript": transcript,
+                "sentiment_score": sentiment_score,
+                "sentiment_label": sentiment_label,
+                "bad_word_percentage": bad_word_percentage,
+            }
+        except Exception as e:
+            logger.error("Generate error for session %s: %s", session_id, e)
+            raise HTTPException(500, detail=f"Failed to generate: {e}")
+
     # ===================== AUTH & USERS =====================
 
     @router.post(
@@ -503,11 +674,20 @@ def create_router():
         summary="Public service info (no API key required)",
     )
     async def public_info():
+        # Determine if auth is required based on auth_mode
+        auth_required = False
+        if settings.auth_mode == "api_key":
+            auth_required = bool(settings.api_key)
+        elif settings.auth_mode == "local":
+            auth_required = True
+        elif settings.auth_mode == "both":
+            auth_required = True
+
         return {
             "service": "idin9-srs",
             "version": "26.06.04",
             "auth_mode": settings.auth_mode,
-            "auth_required": bool(settings.api_key) if settings.auth_mode == "api_key" else True,
+            "auth_required": auth_required,
         }
 
     return router

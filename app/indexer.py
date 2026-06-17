@@ -27,6 +27,7 @@ class RecordingIndexer:
                     sentiment_score REAL,
                     sentiment_label TEXT,
                     transcript TEXT,
+                    bad_word_percentage REAL DEFAULT 0.0,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -48,13 +49,14 @@ class RecordingIndexer:
                       duration: float,
                       sentiment_score: float,
                       sentiment_label: str,
-                      transcript: str) -> None:
+                      transcript: str,
+                      bad_word_percentage: float = 0.0) -> None:
         """Add or update a recording record."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute('''
                 INSERT OR REPLACE INTO recordings
-                (session_id, caller, callee, start_time, end_time, wav_path, duration, sentiment_score, sentiment_label, transcript)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (session_id, caller, callee, start_time, end_time, wav_path, duration, sentiment_score, sentiment_label, transcript, bad_word_percentage)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 session_id,
                 caller,
@@ -65,7 +67,8 @@ class RecordingIndexer:
                 duration,
                 sentiment_score,
                 sentiment_label,
-                transcript
+                transcript,
+                bad_word_percentage,
             ))
             conn.commit()
 

@@ -21,6 +21,7 @@ class SessionInfo(BaseModel):
     transcript: Optional[str] = None
     start_time: Optional[str] = None  # ISO format datetime string
     end_time: Optional[str] = None    # ISO format datetime string
+    bad_word_percentage: float = 0.0
 
 
 class StartRecordResponse(BaseModel):
@@ -54,6 +55,7 @@ class RecordingInfo(BaseModel):
     sentiment_score: float  # 1-10
     sentiment_label: str
     transcript: str
+    bad_word_percentage: float = 0.0
 
 
 class ErrorResponse(BaseModel):
