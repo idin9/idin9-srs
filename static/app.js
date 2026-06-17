@@ -74,8 +74,9 @@ async function apiFetch(url, options = {}) {
   return res;
 }
 
-// Check if auth is needed on load — always requires login
+// Check if auth is needed on load
 (async function checkAuth() {
+  let authRequired = true;
   try {
     const res = await fetch(`${API_BASE}/info`);
     if (res.ok) {
@@ -84,13 +85,21 @@ async function apiFetch(url, options = {}) {
       if (info.font_family && info.font_family !== 'system') {
         document.body.style.fontFamily = info.font_family;
       }
+      
+      if (info.auth_required !== undefined) {
+        authRequired = info.auth_required;
+      }
     }
   } catch {}
 
+  if (!authRequired) {
+    document.getElementById('app-shell').style.display = 'flex';
+    document.getElementById('login-modal').style.display = 'none';
+    return;
+  }
+
   if (getAuthHeader() || getApiKey()) {
     await showApp();
-  } else {
-    document.getElementById('login-modal').style.display = 'flex';
   }
 })();
 

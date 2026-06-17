@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     sentiment_enabled: bool = True
 
     # ── Authentication ──────────────────────────────────
-    auth_mode: str = "api_key" # "api_key", "local", "both"
+    auth_mode: str = "local" # "api_key", "local", "both"
     jwt_secret: str = "idin9-srs-super-secret-jwt-key-change-me"
     jwt_algorithm: str = "HS256"
     jwt_expiry_hours: int = 24
