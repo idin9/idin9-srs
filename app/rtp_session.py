@@ -91,21 +91,24 @@ class RtpSession:
         if not self._running:
             return
 
-        header = parse_rtp_header(data)
-        if header is None:
-            return
+        try:
+            header = parse_rtp_header(data)
+            if header is None:
+                return
 
-        if self._payload_type is None:
-            self._payload_type = header["payload_type"]
-            logger.info(
-                "Session %s detected payload type %s",
-                self.session_id,
-                self._payload_type,
-            )
+            if self._payload_type is None:
+                self._payload_type = header["payload_type"]
+                logger.info(
+                    "Session %s detected payload type %s",
+                    self.session_id,
+                    self._payload_type,
+                )
 
-        payload = header["payload"]
-        if payload:
-            self.on_audio(self.session_id, payload, header["payload_type"])
+            payload = header["payload"]
+            if payload:
+                self.on_audio(self.session_id, payload, header["payload_type"])
+        except Exception as e:
+            logger.warning("RTP packet error on %s: %s", self.session_id, e)
 
     def stop(self):
         self._running = False

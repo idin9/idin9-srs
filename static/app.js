@@ -282,6 +282,7 @@ function renderResults(recordings) {
     const dt = formatDateTime(r.end_time);
     const dur = formatDuration(r.duration);
 
+    const hasTranscript = r.transcript && r.transcript.length > 0;
     return `<tr>
       <td title="${r.end_time}">${dt}</td>
       <td>${escapeHtml(r.caller || '-')}</td>
@@ -310,6 +311,39 @@ function resetFilters() {
   document.getElementById('filter-limit').value = '50';
   searchRecordings(0);
 }
+
+// ============ TRANSCRIPT VIEWER ============
+async function showTranscript(sessionId) {
+  const modal = document.getElementById('transcript-modal');
+  const content = document.getElementById('transcript-content');
+  const title = document.getElementById('transcript-modal-title');
+
+  title.textContent = `Session: ${sessionId}`;
+  content.textContent = 'Loading transcript...';
+  modal.style.display = 'flex';
+
+  try {
+    const res = await apiFetch(`${API_BASE}/record/${sessionId}`);
+    if (res.ok) {
+      const data = await res.json();
+      content.textContent = data.transcript || '(no transcript)';
+    } else {
+      content.textContent = `Error: HTTP ${res.status}`;
+    }
+  } catch (err) {
+    content.textContent = `Error: ${err.message}`;
+  }
+}
+
+function closeTranscriptModal() {
+  document.getElementById('transcript-modal').style.display = 'none';
+}
+
+// Close transcript modal on backdrop click
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('transcript-modal');
+  if (e.target === modal) closeTranscriptModal();
+});
 
 // ============ AUDIO PLAYER ============
 async function playAudio(sessionId) {
@@ -403,7 +437,7 @@ function populateAdminForm(config) {
     'rtp_min_port', 'rtp_max_port',
     'api_key', 'auth_mode', 'timezone', 'locale', 'font_family',
     'transcription_provider', 'transcription_api_key', 'transcription_api_url', 'transcription_api_model',
-    'whisper_device', 'whisper_cache_dir',
+    'whisper_device', 'whisper_cache_dir', 'whisper_language',
     'sentiment_provider', 'sentiment_api_key', 'sentiment_api_url', 'sentiment_api_model',
     'sentiment_model', 'hf_cache_dir',
     'output_dir', 'index_db', 'retention_years',
@@ -466,6 +500,7 @@ async function saveSettings(event) {
     whisper_model_size: document.querySelector('[name="whisper_model_size"]').value,
     whisper_device: document.querySelector('[name="whisper_device"]').value,
     whisper_cache_dir: document.querySelector('[name="whisper_cache_dir"]').value.trim(),
+    whisper_language: document.querySelector('[name="whisper_language"]').value.trim(),
     sentiment_provider: document.querySelector('[name="sentiment_provider"]').value,
     sentiment_api_key: document.querySelector('[name="sentiment_api_key"]').value.trim(),
     sentiment_api_url: document.querySelector('[name="sentiment_api_url"]').value.trim(),

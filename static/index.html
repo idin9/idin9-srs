@@ -231,6 +231,7 @@
                   <th>Callee</th>
                   <th>Duration</th>
                   <th>Sentiment</th>
+                  <th>Transcript</th>
                   <th class="text-end px-3">Actions</th>
                 </tr>
               </thead>
@@ -483,6 +484,11 @@
                     <option value="cpu">cpu</option>
                     <option value="cuda">cuda</option>
                   </select>
+                </div>
+                <div>
+                  <label class="form-label text-muted small mb-1">Language Hint</label>
+                  <input type="text" name="whisper_language" class="form-control" placeholder="Leave empty for auto-detect, e.g. th for Thai">
+                  <span class="form-text text-muted small">ISO 639-1 code (th, en, ja, etc.). Empty = auto-detect all languages</span>
                 </div>
                 <div>
                   <label class="form-label text-muted small mb-1">Local Cache Directory</label>

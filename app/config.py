@@ -7,8 +7,8 @@ class Settings(BaseSettings):
     sip_listen_host: str = "0.0.0.0"
     sip_listen_port: int = 5060
     rtp_listen_host: str = "0.0.0.0"
-    rtp_min_port: int = 10000
-    rtp_max_port: int = 10100
+    rtp_min_port: int = 7000
+    rtp_max_port: int = 7399
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     # API key authentication. If set, all API requests must include X-API-Key header.

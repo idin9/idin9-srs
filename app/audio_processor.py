@@ -21,12 +21,12 @@ A_LAW_TABLE = [0] * 256
 
 def _build_mulaw_table():
     for i in range(256):
-        val = ~i
+        val = ~i & 0xFF
         sign = (val & 0x80) >> 7
         exponent = (val >> 4) & 0x07
         mantissa = val & 0x0F
-        sample = ((mantissa << 3) + 0x84) << (exponent + 2)
-        sample -= 0x84 << 2
+        sample = ((mantissa << 1) + 33) << exponent
+        sample -= 33
         if sign:
             sample = -sample
         MU_LAW_TABLE[i] = sample
@@ -116,7 +116,11 @@ class AudioProcessor:
 
     def feed_audio(self, session_id: str, stream_index: int, payload: bytes, payload_type: int):
         decoder = PAYLOAD_DECODERS.get(payload_type, PAYLOAD_DECODERS.get(PAYLOAD_TYPE_PCMU))
-        samples = decoder(payload)
+        try:
+            samples = decoder(payload)
+        except Exception as e:
+            logger.error("Audio decode error session=%s type=%s: %s", session_id, payload_type, e)
+            return
         if len(samples) == 0:
             return
 
@@ -197,6 +201,32 @@ class AudioProcessor:
             )
 
         return filepath
+
+    def split_stereo_wav(self, session_id: str, wav_path: str) -> Optional[list[str]]:
+        if not os.path.exists(wav_path):
+            return None
+        try:
+            with wave.open(wav_path, "rb") as wf:
+                if wf.getnchannels() < 2:
+                    return None
+                frames = wf.readframes(wf.getnframes())
+                sampwidth = wf.getsampwidth()
+                framerate = wf.getframerate()
+            samples = np.frombuffer(frames, dtype=np.int16).reshape(-1, 2)
+            paths = []
+            for ch in range(2):
+                ch_path = os.path.join(self.output_dir, f"{session_id}.ch{ch}.wav")
+                with wave.open(ch_path, "wb") as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(sampwidth)
+                    wf.setframerate(framerate)
+                    wf.writeframes(samples[:, ch].tobytes())
+                paths.append(ch_path)
+            logger.info("Split stereo WAV into channels for session %s", session_id)
+            return paths
+        except Exception as e:
+            logger.error("Failed to split stereo WAV for session %s: %s", session_id, e)
+            return None
 
     def get_wav_path(self, session_id: str) -> Optional[str]:
         filepath = os.path.join(self.output_dir, f"{session_id}.wav")
