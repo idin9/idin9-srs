@@ -19,6 +19,10 @@ function getApiKey() {
   return localStorage.getItem('idin9_api_key') || '';
 }
 
+function setApiKey(key) {
+  localStorage.setItem('idin9_api_key', key);
+}
+
 function setAuthToken(token) {
   localStorage.setItem('idin9_auth_token', token);
 }
@@ -45,12 +49,11 @@ async function apiFetch(url, options = {}) {
   const res = await fetch(url, { ...options, headers });
 
   if (res.status === 403 || res.status === 401) {
-    // If we're unauthorized and we have a token, it might be expired
-    if (token) {
+    const authUrl = url.includes('/auth/');
+    if (token && authUrl) {
       logout();
       return;
     }
-    // Need to login or enter API key
     document.getElementById('login-modal').style.display = 'flex';
   }
 
