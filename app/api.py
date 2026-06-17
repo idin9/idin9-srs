@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-import uuid
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Request, Query, Header, Depends
 from fastapi.responses import FileResponse
@@ -69,13 +68,6 @@ async def verify_admin(user: dict = Depends(verify_auth)):
     return user
 
 
-def _validate_uuid(session_id: str):
-    try:
-        uuid.UUID(session_id)
-    except ValueError:
-        raise HTTPException(400, detail=f"Invalid session_id format: {session_id}")
-
-
 def create_router():
     router = APIRouter(prefix="/api/v1", tags=["idin9-srs"])
 
@@ -88,7 +80,6 @@ def create_router():
         summary="Stop a recording and process results",
     )
     async def stop_recording(session_id: str, request: Request, user: dict = Depends(verify_auth)):
-        _validate_uuid(session_id)
         sm = request.app.state.session_manager
         info = await sm.stop_session(session_id)
         if info is None:
@@ -110,7 +101,6 @@ def create_router():
         summary="Get sentiment and transcript for a session",
     )
     async def get_sentiment_transcript(session_id: str, request: Request, user: dict = Depends(verify_auth)):
-        _validate_uuid(session_id)
         sm = request.app.state.session_manager
         info = sm.get_session(session_id)
         if info is not None:
@@ -141,7 +131,6 @@ def create_router():
     )
     async def get_audio_file(session_id: str, request: Request, user: dict = Depends(verify_auth)):
         """Stream the audio file for playback or download. Decrypts on-the-fly if encrypted."""
-        _validate_uuid(session_id)
         indexer = request.app.state.indexer
         record = indexer.get_recording(session_id)
         
