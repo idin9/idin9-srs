@@ -30,7 +30,9 @@ function setAuthToken(token) {
 function logout() {
   localStorage.removeItem('idin9_auth_token');
   localStorage.removeItem('idin9_api_key');
-  location.reload();
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('login-modal').style.display = 'flex';
+  currentUserRole = null;
 }
 
 async function apiFetch(url, options = {}) {
@@ -49,12 +51,8 @@ async function apiFetch(url, options = {}) {
   const res = await fetch(url, { ...options, headers });
 
   if (res.status === 403 || res.status === 401) {
-    const authUrl = url.includes('/auth/');
-    if (token && authUrl) {
-      logout();
-      return;
-    }
-    document.getElementById('login-modal').style.display = 'flex';
+    logout();
+    return;
   }
 
   return res;
@@ -67,7 +65,6 @@ async function apiFetch(url, options = {}) {
     if (res.ok) {
       const info = await res.json();
       
-      // Update font family if set
       if (info.font_family && info.font_family !== 'system') {
         document.body.style.fontFamily = info.font_family;
       }
@@ -77,33 +74,52 @@ async function apiFetch(url, options = {}) {
           const key = prompt('This server requires an API key. Please enter it:');
           if (key) {
             setApiKey(key);
-            location.reload();
+            await showApp();
           }
         } else {
           document.getElementById('login-modal').style.display = 'flex';
         }
       } else if (getAuthHeader() || getApiKey()) {
-        // Fetch user info to set role
-        const meRes = await apiFetch(`${API_BASE}/auth/me`);
-        if (meRes && meRes.ok) {
-          const user = await meRes.json();
-          currentUserRole = user.role;
-          applyRolePermissions();
-        }
+        await showApp();
+      } else {
+        document.getElementById('app-shell').style.display = 'flex';
       }
+    } else {
+      document.getElementById('app-shell').style.display = 'flex';
     }
-  } catch {}
+  } catch {
+    document.getElementById('app-shell').style.display = 'flex';
+  }
 })();
 
+async function showApp() {
+  try {
+    const meRes = await apiFetch(`${API_BASE}/auth/me`);
+    if (meRes && meRes.ok) {
+      const user = await meRes.json();
+      currentUserRole = user.role;
+      document.getElementById('app-shell').style.display = 'flex';
+      document.getElementById('login-modal').style.display = 'none';
+      applyRolePermissions();
+    } else {
+      document.getElementById('app-shell').style.display = 'none';
+      document.getElementById('login-modal').style.display = 'flex';
+    }
+  } catch {
+    document.getElementById('app-shell').style.display = 'none';
+    document.getElementById('login-modal').style.display = 'flex';
+  }
+}
+
 function applyRolePermissions() {
+  const adminBtn = document.querySelector('[data-tab="admin"]');
   if (currentUserRole === 'auditor') {
-    // Hide Admin tabs
-    document.querySelector('[data-tab="admin"]').style.display = 'none';
+    if (adminBtn) adminBtn.style.display = 'none';
     if (document.querySelector('.tab-btn.active').dataset.tab !== 'auditor') {
       switchTab('auditor');
     }
   } else {
-    document.querySelector('[data-tab="admin"]').style.display = 'block';
+    if (adminBtn) adminBtn.style.display = 'block';
   }
 }
 
@@ -123,8 +139,7 @@ async function handleLogin(e) {
     if (res.ok) {
       const data = await res.json();
       setAuthToken(data.access_token);
-      document.getElementById('login-modal').style.display = 'none';
-      location.reload(); // Reload to apply role permissions and fetch data
+      await showApp();
     } else {
       errorEl.style.display = 'block';
       if (res.status === 400) {
