@@ -490,6 +490,14 @@
                   <span class="form-text text-muted small">ISO 639-1 code (th, en, ja, etc.). Empty = auto-detect all languages</span>
                 </div>
                 <div>
+                  <label class="form-label text-muted small mb-1">Compute Type</label>
+                  <select name="whisper_compute_type" class="form-select">
+                    <option value="auto">auto</option>
+                    <option value="int8">int8 (fastest on CPU)</option>
+                    <option value="float16">float16</option>
+                  </select>
+                </div>
+                <div>
                   <label class="form-label text-muted small mb-1">Local Cache Directory</label>
                   <input type="text" name="whisper_cache_dir" class="form-control" placeholder="Default directory (~/.cache/whisper)">
                 </div>

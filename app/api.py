@@ -343,6 +343,7 @@ def create_router():
             "whisper_device",
             "whisper_compute_type",
             "whisper_cache_dir",
+            "whisper_language",
             "sentiment_model",
             "transcription_enabled",
             "sentiment_enabled",

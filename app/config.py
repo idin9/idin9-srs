@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     whisper_device: str = "auto"
     whisper_compute_type: str = "auto"
     whisper_cache_dir: str = ""
+    whisper_language: str = ""
 
     # ── Sentiment (Local) ───────────────────────────────
     #   English emotion: j-hartmann/emotion-english-distilroberta-base
