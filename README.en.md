@@ -531,7 +531,7 @@ sudo systemctl restart idin9-srs
 | **New `providers.py` module** (v1.2+) | File is auto-imported; no manual action needed. |
 | **AI model cache directories** (v1.2+) | Add to `.env`: `WHISPER_CACHE_DIR=`, `HF_CACHE_DIR=`. Leave empty for default paths. |
 
-#### Upgrading from v1.0 / v1.1 (id替换: siprec → idin9-srs)
+#### Upgrading from v1.0 / v1.1 (siprec → idin9-srs)
 
 | Change | Action Required |
 |--------|----------------|
