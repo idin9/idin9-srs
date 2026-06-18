@@ -67,9 +67,11 @@ async def lifespan(app: FastAPI):
     # Load runtime config overrides
     load_config_overrides()
 
-    # Validate required secrets
+    # Auto-generate JWT secret if not configured (tokens invalidated on restart)
     if not settings.jwt_secret:
-        logger.warning("JWT_SECRET is not configured! Token authentication will fail. Set JWT_SECRET in .env")
+        import secrets
+        settings.jwt_secret = secrets.token_hex(32)
+        logger.info("JWT_SECRET not set in .env — generated random ephemeral secret (tokens invalidated on restart)")
     if settings.encryption_enabled and not settings.encryption_password:
         logger.warning("Encryption enabled but ENCRYPTION_PASSWORD is not set in .env")
 
