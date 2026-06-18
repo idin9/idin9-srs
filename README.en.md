@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**Version:** 26.06.04  |
+**Version:** 26.06.05  |
 **Author:** Kanit Klai-Udom  |
 **Contact:** [www.idin9.com](https://www.idin9.com)  
 **License:** MIT
@@ -23,7 +23,7 @@
 | Feature | Description |
 |---------|-------------|
 | **SIPREC SRS (RFC 7866)** | Compliant Session Recording Server — receives SIP INVITE with multipart MIME (SDP + XML metadata) |
-| **Dual RTP Streams** | Two independent RTP streams (caller left / callee right) → stereo 16-bit WAV |
+| **Dual RTP Streams** | Two independent RTP streams (caller left / callee right) → stereo audio |
 | **Codec Support** | G.711 μ-law (PCMU), G.711 A-law (PCMA), G.729, Opus |
 | **Speech-to-Text** | Powered by faster-whisper (tiny → large-v3 models, 100+ languages) |
 | **Sentiment Analysis** | HuggingFace emotion recognition → configurable 1–10 anger score |
@@ -32,7 +32,7 @@
 | **REST API** | Start/stop recordings, fetch transcript & sentiment, search/query historical records |
 | **Retention Policy** | Configurable retention years (default 7); API + cron-based cleanup |
 | **Configurable Mapping** | Emotion → score mapping adjustable via `.env` or Admin UI |
-| **Web Frontend (Auditor)** | Search by date/time, caller, callee, sentiment; play audio; export WAV |
+| **Web Frontend (Auditor)** | Search by date/time, caller, callee, sentiment; play audio; export recordings |
 | **Web Frontend (Admin)** | View/edit system parameters; trigger retention cleanup |
 
 ### Architecture (SIPREC SRS — RFC 7866)
@@ -254,7 +254,7 @@ Set `RETENTION_YEARS=0` in `.env` to keep all recordings indefinitely.
 | GET | `/api/v1/record/{id}` | Get transcript & sentiment | — |
 | GET | `/api/v1/sessions` | List active sessions | — |
 | GET | `/api/v1/recordings` | Search indexed recordings | `caller`, `callee`, `start_time_from`, `start_time_to`, `min_sentiment`, `max_sentiment`, `limit`, `offset` |
-| GET | `/api/v1/recordings/{id}/audio` | Play/download WAV audio file | — |
+| GET | `/api/v1/recordings/{id}/audio` | Play/download audio file (Opus/WAV, decrypted on-the-fly) | — |
 | GET | `/api/v1/admin/settings` | View all configuration | — |
 | PUT | `/api/v1/admin/settings` | Update configuration (save to override file) | — |
 | POST | `/api/v1/maintenance/cleanup` | Trigger retention cleanup | — |
@@ -278,7 +278,7 @@ The server includes a built-in web UI at `http://localhost:8000/`.
 **Auditor Panel** — Search, listen, and export recordings:
 - Filter by date/time range, caller, callee, sentiment score
 - Play audio directly in the browser (HTML5 player)
-- Download the original stereo WAV file
+- Download the original audio file (Opus/WAV, decrypted on-the-fly)
 - Table shows: date/time, caller, callee, duration, sentiment badge
 
 **Administrator Panel** — View and edit system parameters:

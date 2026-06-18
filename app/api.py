@@ -495,7 +495,7 @@ def create_router():
     async def public_info():
         return {
             "service": "idin9-srs",
-            "version": "26.06.04",
+            "version": "26.06.05",
             "auth_mode": settings.auth_mode,
             "auth_required": bool(settings.api_key) if settings.auth_mode == "api_key" else True,
         }

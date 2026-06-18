@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     # Leave empty to disable authentication (no API key required).
     api_key: str = ""
     output_dir: str = "recordings"
-    audio_format: str = "wav"  # "wav" or "opus"
-    encryption_enabled: bool = False
+    audio_format: str = "opus"  # "wav" or "opus"
+    encryption_enabled: bool = True
     encryption_password: str = ""
 
     # ── Transcription Provider ─────────────────────────
