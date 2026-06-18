@@ -1,9 +1,17 @@
 import os
+import re
 import wave
 import logging
 import numpy as np
 from typing import Optional
 from collections import defaultdict
+
+
+# ── Session ID sanitisation ────────────────────────────
+SAFE_SESSION_ID_RE = re.compile(r"^[a-zA-Z0-9@.\-_:+]+$")
+
+def is_safe_session_id(session_id: str) -> bool:
+    return bool(SAFE_SESSION_ID_RE.match(session_id))
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +150,9 @@ class AudioProcessor:
         return max_count / SAMPLE_RATE
 
     def save_wav(self, session_id: str) -> Optional[str]:
+        if not is_safe_session_id(session_id):
+            logger.error("Rejected save_wav for unsafe session_id: %s", session_id)
+            return None
         if session_id not in self._buffers or not self._buffers[session_id]:
             logger.warning("No audio data for session %s", session_id)
             return None
@@ -203,6 +214,9 @@ class AudioProcessor:
         return filepath
 
     def split_stereo_wav(self, session_id: str, wav_path: str) -> Optional[list[str]]:
+        if not is_safe_session_id(session_id):
+            logger.error("Rejected split_stereo_wav for unsafe session_id: %s", session_id)
+            return None
         if not os.path.exists(wav_path):
             return None
         try:
@@ -229,6 +243,8 @@ class AudioProcessor:
             return None
 
     def get_wav_path(self, session_id: str) -> Optional[str]:
+        if not is_safe_session_id(session_id):
+            return None
         filepath = os.path.join(self.output_dir, f"{session_id}.wav")
         if os.path.exists(filepath):
             return filepath
@@ -258,19 +274,21 @@ class AudioProcessor:
                 
         # 2. Encrypt if enabled
         if settings.encryption_enabled:
-            password = settings.encryption_password or "idin9-srs-default-pass"
-            enc_path = target_path + ".enc"
-            try:
-                encrypt_file(target_path, enc_path, password)
-                # Delete the unencrypted target file
+            password = settings.encryption_password
+            if not password:
+                logger.error("Encryption enabled but encryption_password is not set in .env — skipping encryption for session %s", session_id)
+            else:
+                enc_path = target_path + ".enc"
                 try:
-                    os.remove(target_path)
-                except OSError as e:
-                    logger.warning("Failed to remove unencrypted file %s: %s", target_path, e)
-                target_path = enc_path
-                logger.info("Successfully encrypted audio for session %s -> %s", session_id, enc_path)
-            except Exception as e:
-                logger.error("Encryption failed for session %s: %s", session_id, e)
+                    encrypt_file(target_path, enc_path, password)
+                    try:
+                        os.remove(target_path)
+                    except OSError as e:
+                        logger.warning("Failed to remove unencrypted file %s: %s", target_path, e)
+                    target_path = enc_path
+                    logger.info("Successfully encrypted audio for session %s -> %s", session_id, enc_path)
+                except Exception as e:
+                    logger.error("Encryption failed for session %s: %s", session_id, e)
                 
         return target_path
 
@@ -316,7 +334,7 @@ def encrypt_file(in_path: str, out_path: str, password: str):
         algorithm=hashes.SHA256(),
         length=32,
         salt=salt,
-        iterations=100000,
+        iterations=600000,
     )
     key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
     fernet = Fernet(key)
@@ -342,7 +360,7 @@ def decrypt_file(in_path: str, password: str) -> bytes:
         algorithm=hashes.SHA256(),
         length=32,
         salt=salt,
-        iterations=100000,
+        iterations=600000,
     )
     key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
     fernet = Fernet(key)

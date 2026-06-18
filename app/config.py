@@ -75,7 +75,7 @@ class Settings(BaseSettings):
 
     # ── Authentication ──────────────────────────────────
     auth_mode: str = "local" # "api_key", "local", "both"
-    jwt_secret: str = "idin9-srs-super-secret-jwt-key-change-me"
+    jwt_secret: str = ""  # MUST set via .env; empty = hard failure on login
     jwt_algorithm: str = "HS256"
     jwt_expiry_hours: int = 24
 
@@ -87,6 +87,9 @@ class Settings(BaseSettings):
     # ── Retention ───────────────────────────────────────
     retention_years: int = 7
     index_db: str = "index.db"
+
+    # ── Session Timeout ─────────────────────────────────
+    session_timeout_seconds: int = 300
 
     def get_sentiment_mapping(self) -> Dict[str, float]:
         try:

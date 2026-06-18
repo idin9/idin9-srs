@@ -25,27 +25,27 @@ function startSessionWatchdog() {
 }
 
 function getAuthHeader() {
-  const token = localStorage.getItem('idin9_auth_token');
+  const token = sessionStorage.getItem('idin9_auth_token');
   if (token) return `Bearer ${token}`;
   return null;
 }
 
 function getApiKey() {
-  return localStorage.getItem('idin9_api_key') || '';
+  return sessionStorage.getItem('idin9_api_key') || '';
 }
 
 function setApiKey(key) {
-  localStorage.setItem('idin9_api_key', key);
+  sessionStorage.setItem('idin9_api_key', key);
 }
 
 function setAuthToken(token) {
-  localStorage.setItem('idin9_auth_token', token);
+  sessionStorage.setItem('idin9_auth_token', token);
 }
 
 function logout() {
   if (sessionTimer) clearTimeout(sessionTimer);
-  localStorage.removeItem('idin9_auth_token');
-  localStorage.removeItem('idin9_api_key');
+  sessionStorage.removeItem('idin9_auth_token');
+  sessionStorage.removeItem('idin9_api_key');
   document.getElementById('app-shell').style.display = 'none';
   document.getElementById('login-modal').style.display = 'flex';
   currentUserRole = null;
@@ -66,9 +66,12 @@ async function apiFetch(url, options = {}) {
   
   const res = await fetch(url, { ...options, headers });
 
-  if (res.status === 403 || res.status === 401) {
+  if (res.status === 401) {
     logout();
     return;
+  }
+  if (res.status === 403) {
+    throw new Error('Access denied');
   }
 
   return res;
@@ -311,14 +314,14 @@ function renderResults(recordings) {
 
     const hasTranscript = r.transcript && r.transcript.length > 0;
     return `<tr>
-      <td title="${r.end_time}">${dt}</td>
+      <td title="${escapeAttr(r.end_time)}">${dt}</td>
       <td>${escapeHtml(r.caller || '-')}</td>
       <td>${escapeHtml(r.callee || '-')}</td>
       <td>${dur}</td>
       <td><span class="sentiment-badge ${scoreClass}">${score.toFixed(1)}</span></td>
       <td class="text-center">${hasTranscript ? `<a href="javascript:void(0)" onclick="showTranscript('${encodeURIComponent(r.session_id)}')" title="View transcript"><i class="bi bi-paperclip fs-5"></i></a>` : '-'}</td>
       <td class="actions-cell">
-        <button class="btn btn-primary btn-sm" onclick="playAudio('${encodeURIComponent(r.session_id)}')">Play</button>
+        <button class="btn btn-primary btn-sm" data-sid="${encodeURIComponent(r.session_id)}" onclick="playAudio(this.dataset.sid)">Play</button>
         <a href="${API_BASE}/recordings/${encodeURIComponent(r.session_id)}/audio" class="btn btn-secondary btn-sm" download>Export</a>
       </td>
     </tr>`;
@@ -408,9 +411,11 @@ async function playAudio(sessionId) {
     const res = await apiFetch(`${API_BASE}/record/${sessionId}`);
     if (res.ok) {
       const data = await res.json();
+      const sentLabel = escapeHtml(data.sentiment_label || '');
+      const sentScore = data.sentiment_score !== undefined ? data.sentiment_score.toFixed(1) : 'N/A';
       info.innerHTML = `
         <strong>Transcript:</strong> ${escapeHtml(data.transcript || 'N/A')}<br>
-        <strong>Sentiment:</strong> ${data.sentiment_score !== undefined ? data.sentiment_score.toFixed(1) + ' (' + (data.sentiment_label || '') + ')' : 'N/A'}
+        <strong>Sentiment:</strong> ${escapeHtml(sentScore)} (${escapeHtml(sentLabel)})
       `;
     }
   } catch {}
@@ -506,35 +511,48 @@ async function saveSettings(event) {
     return;
   }
 
-  const payload = {
-    api_key: document.querySelector('[name="api_key"]').value.trim(),
-    auth_mode: document.querySelector('[name="auth_mode"]').value,
-    timezone: document.querySelector('[name="timezone"]').value,
-    locale: document.querySelector('[name="locale"]').value,
-    font_family: document.querySelector('[name="font_family"]').value,
-    transcription_provider: document.querySelector('[name="transcription_provider"]').value,
-    transcription_api_key: document.querySelector('[name="transcription_api_key"]').value.trim(),
-    transcription_api_url: document.querySelector('[name="transcription_api_url"]').value.trim(),
-    transcription_api_model: document.querySelector('[name="transcription_api_model"]').value.trim(),
-    whisper_model_size: document.querySelector('[name="whisper_model_size"]').value,
-    whisper_device: document.querySelector('[name="whisper_device"]').value,
-    whisper_cache_dir: document.querySelector('[name="whisper_cache_dir"]').value.trim(),
-    whisper_compute_type: document.querySelector('[name="whisper_compute_type"]').value.trim(),
-    sentiment_provider: document.querySelector('[name="sentiment_provider"]').value,
-    sentiment_api_key: document.querySelector('[name="sentiment_api_key"]').value.trim(),
-    sentiment_api_url: document.querySelector('[name="sentiment_api_url"]').value.trim(),
-    sentiment_api_model: document.querySelector('[name="sentiment_api_model"]').value.trim(),
-    sentiment_model: document.querySelector('[name="sentiment_model"]').value.trim(),
-    sentiment_mapping: mappingParsed,
-    hf_cache_dir: document.querySelector('[name="hf_cache_dir"]').value.trim(),
-    transcription_enabled: document.querySelector('[name="transcription_enabled"]').checked,
-    sentiment_enabled: document.querySelector('[name="sentiment_enabled"]').checked,
-    retention_years: parseInt(document.querySelector('[name="retention_years"]').value) || 7,
-    output_dir: document.querySelector('[name="output_dir"]').value,
-    audio_format: document.querySelector('[name="audio_format"]').value,
-    encryption_enabled: document.querySelector('[name="encryption_enabled"]').checked,
-    encryption_password: document.querySelector('[name="encryption_password"]').value.trim(),
+  const MASKED = '********';
+
+  const getVal = (name) => {
+    const el = document.querySelector(`[name="${name}"]`);
+    if (!el) return undefined;
+    if (el.type === 'checkbox') return el.checked;
+    const val = el.value.trim();
+    return val === MASKED ? undefined : val;
   };
+
+  const payload = {
+    api_key: getVal('api_key'),
+    auth_mode: getVal('auth_mode'),
+    timezone: getVal('timezone'),
+    locale: getVal('locale'),
+    font_family: getVal('font_family'),
+    transcription_provider: getVal('transcription_provider'),
+    transcription_api_key: getVal('transcription_api_key'),
+    transcription_api_url: getVal('transcription_api_url'),
+    transcription_api_model: getVal('transcription_api_model'),
+    whisper_model_size: getVal('whisper_model_size'),
+    whisper_device: getVal('whisper_device'),
+    whisper_cache_dir: getVal('whisper_cache_dir'),
+    whisper_compute_type: getVal('whisper_compute_type'),
+    sentiment_provider: getVal('sentiment_provider'),
+    sentiment_api_key: getVal('sentiment_api_key'),
+    sentiment_api_url: getVal('sentiment_api_url'),
+    sentiment_api_model: getVal('sentiment_api_model'),
+    sentiment_model: getVal('sentiment_model'),
+    sentiment_mapping: mappingParsed,
+    hf_cache_dir: getVal('hf_cache_dir'),
+    transcription_enabled: getVal('transcription_enabled'),
+    sentiment_enabled: getVal('sentiment_enabled'),
+    retention_years: parseInt(getVal('retention_years')) || 7,
+    output_dir: getVal('output_dir'),
+    audio_format: getVal('audio_format'),
+    encryption_enabled: getVal('encryption_enabled'),
+    encryption_password: getVal('encryption_password'),
+  };
+
+  // Strip undefined fields so masked secrets aren't overwritten
+  Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
   try {
     const res = await apiFetch(`${API_BASE}/admin/settings`, {
@@ -693,6 +711,11 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function escapeAttr(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 // ============ LIVE CONSOLE ============
 let logsInterval = null;
 
@@ -718,7 +741,7 @@ async function fetchLiveSessions() {
     
     tbody.innerHTML = sessions.map(s => {
       return `<tr>
-        <td title="${s.start_time}">${formatDateTime(s.start_time)}</td>
+        <td title="${escapeAttr(s.start_time)}">${formatDateTime(s.start_time)}</td>
         <td>${escapeHtml(s.session_id)}</td>
         <td>${escapeHtml(s.caller || '-')}</td>
         <td>${escapeHtml(s.callee || '-')}</td>

@@ -57,9 +57,6 @@ async def verify_auth(
             except jwt.InvalidTokenError:
                 raise HTTPException(status_code=403, detail="Invalid token")
                 
-    if settings.auth_mode == "api_key" and not settings.api_key:
-        return {"username": "anonymous", "role": "admin"}
-        
     raise HTTPException(status_code=403, detail="Invalid authentication credentials")
 
 async def verify_admin(user: dict = Depends(verify_auth)):
@@ -264,6 +261,10 @@ def create_router():
         from .config import settings as cfg
 
         mapping_raw = cfg.sentiment_mapping if hasattr(cfg, 'sentiment_mapping') else '{}'
+
+        def _mask(val: str) -> str:
+            return "********" if val else ""
+
         return {
             "sip_listen_host": cfg.sip_listen_host,
             "sip_listen_port": cfg.sip_listen_port,
@@ -271,18 +272,18 @@ def create_router():
             "rtp_max_port": cfg.rtp_max_port,
             "api_host": cfg.api_host,
             "api_port": cfg.api_port,
-            "api_key": cfg.api_key,
+            "api_key": _mask(cfg.api_key),
             "auth_mode": cfg.auth_mode,
             "timezone": cfg.timezone,
             "locale": cfg.locale,
             "font_family": cfg.font_family,
             "output_dir": cfg.output_dir,
             "transcription_provider": cfg.transcription_provider,
-            "transcription_api_key": cfg.transcription_api_key,
+            "transcription_api_key": _mask(cfg.transcription_api_key),
             "transcription_api_url": cfg.transcription_api_url,
             "transcription_api_model": cfg.transcription_api_model,
             "sentiment_provider": cfg.sentiment_provider,
-            "sentiment_api_key": cfg.sentiment_api_key,
+            "sentiment_api_key": _mask(cfg.sentiment_api_key),
             "sentiment_api_url": cfg.sentiment_api_url,
             "sentiment_api_model": cfg.sentiment_api_model,
             "whisper_model_size": cfg.whisper_model_size,
@@ -298,7 +299,8 @@ def create_router():
             "index_db": cfg.index_db,
             "audio_format": cfg.audio_format,
             "encryption_enabled": cfg.encryption_enabled,
-            "encryption_password": cfg.encryption_password,
+            "encryption_password": _mask(cfg.encryption_password),
+            "session_timeout_seconds": cfg.session_timeout_seconds,
         }
 
     @router.put(
@@ -363,7 +365,7 @@ def create_router():
         for key in allowed_fields:
             if key in payload and payload[key] is not None:
                 val = payload[key]
-                if key == "retention_years" and val is not None:
+                if key in ("retention_years", "session_timeout_seconds", "sip_listen_port", "api_port", "rtp_min_port", "rtp_max_port") and val is not None:
                     val = int(val)
                 elif key in ("transcription_enabled", "sentiment_enabled", "encryption_enabled") and val is not None:
                     val = bool(val)
