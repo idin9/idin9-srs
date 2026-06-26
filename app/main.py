@@ -160,7 +160,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="idin9-srs",
         description="SIPREC recording server with sentiment analysis and transcription",
-        version="26.06.10",
+        version="26.06.11",
         lifespan=lifespan,
     )
 
@@ -181,7 +181,7 @@ def create_app() -> FastAPI:
             return HTMLResponse(index_path.read_text())
         return {
             "service": "idin9-srs",
-            "version": "26.06.10",
+            "version": "26.06.11",
             "docs": "/docs",
         }
 

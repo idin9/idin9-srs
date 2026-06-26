@@ -157,7 +157,7 @@
     
     <hr>
     <div class="footer text-muted small">
-      <p class="mb-1">idin9-srs v26.06.10</p>
+      <p class="mb-1">idin9-srs v26.06.11</p>
       <a href="/docs" target="_blank" class="text-decoration-none"><i class="bi bi-book me-1"></i>API Docs</a>
       <div class="mt-2"><button class="btn btn-sm btn-outline-secondary" onclick="logout()">Logout</button></div>
     </div>
@@ -439,9 +439,9 @@
                   </div>
                 </div>
                 <div>
-                  <label class="form-label text-muted small mb-1">Encryption Password</label>
+                  <label class="form-label text-muted small mb-1">Voice record password (Global)</label>
                   <input type="password" name="encryption_password" class="form-control" placeholder="Enter password to secure files">
-                  <span class="form-text text-muted small">Required for encryption/decryption on-the-fly</span>
+                  <span class="form-text text-muted small">Required for encryption/decryption on-the-fly. Will not update the previous exported files.</span>
                 </div>
               </div>
             </div>
@@ -790,6 +790,6 @@
 
 <!-- Bootstrap Bundle with Popper JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/static/app.js?v=26.06.10"></script>
+<script src="/static/app.js?v=26.06.11"></script>
 </body>
 </html>
