@@ -116,6 +116,8 @@ async function showApp() {
       document.getElementById('login-modal').style.display = 'none';
       startSessionWatchdog();
       applyRolePermissions();
+      // Auto-load recordings so the Auditor pane isn't empty on login
+      searchRecordings(0);
     } else {
       document.getElementById('app-shell').style.display = 'none';
       document.getElementById('login-modal').style.display = 'flex';
@@ -129,17 +131,13 @@ async function showApp() {
 function applyRolePermissions() {
   const adminBtn = document.querySelector('[data-tab="admin"]');
   if (currentUserRole === 'auditor') {
-    // Hide Admin and Utility tabs
+    // Hide Admin tab (Utility is now a sub-tab of Admin)
     if (adminBtn) adminBtn.style.display = 'none';
-    const utilityBtn = document.querySelector('[data-tab="utility"]');
-    if (utilityBtn) utilityBtn.style.display = 'none';
     if (document.querySelector('.tab-btn.active').dataset.tab !== 'auditor') {
       switchTab('auditor');
     }
   } else {
     if (adminBtn) adminBtn.style.display = 'block';
-    const utilityBtn = document.querySelector('[data-tab="utility"]');
-    if (utilityBtn) utilityBtn.style.display = 'block';
   }
 }
 
@@ -556,15 +554,19 @@ async function saveSettings(event) {
   statusEl.textContent = 'Saving...';
   statusEl.style.color = '#666';
 
-  const mappingRaw = document.querySelector('[name="sentiment_mapping"]').value;
+  const mappingRaw = document.querySelector('[name="sentiment_mapping"]').value.trim();
   let mappingParsed;
-  try {
-    mappingParsed = JSON.parse(mappingRaw);
-    mappingParsed = JSON.stringify(mappingParsed);
-  } catch {
-    statusEl.textContent = 'Invalid JSON in sentiment mapping';
-    statusEl.style.color = '#dc3545';
-    return;
+  if (!mappingRaw) {
+    mappingParsed = '{}';
+  } else {
+    try {
+      mappingParsed = JSON.parse(mappingRaw);
+      mappingParsed = JSON.stringify(mappingParsed);
+    } catch {
+      statusEl.textContent = 'Invalid JSON in sentiment mapping';
+      statusEl.style.color = '#dc3545';
+      return;
+    }
   }
 
   const MASKED = '********';
