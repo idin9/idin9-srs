@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**เวอร์ชัน:** 26.06.07  |
+**เวอร์ชัน:** 26.06.08  |
 **ผู้พัฒนา:** Kanit Klai-Udom  |
 **ติดต่อ:** [www.idin9.com](https://www.idin9.com)  
 **ลิขสิทธิ์:** MIT

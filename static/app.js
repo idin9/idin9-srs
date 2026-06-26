@@ -328,10 +328,7 @@ function renderResults(recordings) {
   tbody.innerHTML = recordings.map(r => {
     const score = r.sentiment_score || 1.0;
     const label = (r.sentiment_label || 'neutral').toLowerCase();
-    // Map sentiment label to color class (Issue 3)
-    const labelClass = label === 'negative' ? 'sentiment-negative'
-      : label === 'positive' ? 'sentiment-positive'
-      : 'sentiment-neutral';
+    const sentStyle = sentimentColor(label, score);
     const badWordPct = r.bad_word_percentage || 0.0;
     const dt = formatDateTime(r.end_time);
     const dur = formatDuration(r.duration);
@@ -355,13 +352,13 @@ function renderResults(recordings) {
       <td>${xmlCell}</td>
       <td>${dur}</td>
       <td>
-        <span class="sentiment-badge ${labelClass}" title="Sentiment: ${label} (${score.toFixed(1)})">${escapeHtml(label)} ${score.toFixed(1)}</span>
+        <span class="sentiment-badge" style="${sentStyle}" title="Sentiment: ${escapeAttr(label)} (${score.toFixed(1)})">${escapeHtml(label)} ${score.toFixed(1)}</span>
         ${badWordPct > 0 ? `<span class="badword-badge" title="Bad words: ${badWordPct}% of transcript"><i class="bi bi-emoji-frown"></i>${badWordPct.toFixed(1)}%</span>` : ''}
       </td>
       <td class="actions-cell">
         <button class="btn btn-primary btn-sm" data-sid="${encodeURIComponent(r.session_id)}" onclick="playAudio(this.dataset.sid)">Play</button>
-        ${genBtn}
         <a href="${API_BASE}/recordings/${encodeURIComponent(r.session_id)}/audio" class="btn btn-secondary btn-sm" download>Export</a>
+        ${genBtn}
       </td>
     </tr>`;
   }).join('');
@@ -449,14 +446,16 @@ async function playAudio(sessionId) {
     const res = await apiFetch(`${API_BASE}/record/${sessionId}`);
     if (res.ok) {
       const data = await res.json();
-      const sentLabel = escapeHtml(data.sentiment_label || 'neutral');
-      const sentScore = data.sentiment_score !== undefined ? data.sentiment_score.toFixed(1) : 'N/A';
+      const sentLabel = (data.sentiment_label || 'neutral').toLowerCase();
+      const sentScoreNum = data.sentiment_score !== undefined ? data.sentiment_score : 1.0;
+      const sentScore = sentScoreNum.toFixed(1);
+      const sentStyle = sentimentColor(sentLabel, sentScoreNum);
       const badWordInfo = data.bad_word_percentage !== undefined && data.bad_word_percentage > 0
         ? `<br><strong>Bad Words:</strong> ${data.bad_word_percentage.toFixed(1)}%`
         : '';
       info.innerHTML = `
         <strong>Transcript:</strong> ${escapeHtml(data.transcript || 'N/A')}<br>
-        <strong>Sentiment:</strong> ${sentLabel} (${sentScore})${badWordInfo}
+        <strong>Sentiment:</strong> <span class="sentiment-badge" style="${sentStyle}">${escapeHtml(sentLabel)} ${sentScore}</span>${badWordInfo}
       `;
     }
   } catch {}
@@ -818,6 +817,45 @@ async function generateSingle(sessionId) {
 }
 
 // ============ UTILITY FUNCTIONS ============
+
+// Color psychology mapping: emotion → HSL hue + saturation
+// Based on color psychology guidelines (verywellmind.com/color-psychology-2795824)
+//   Red    (0°)   = anger, frustration, hostility, negative
+//   Orange (30°)  = surprise, excitement, agitation
+//   Yellow (50°)  = joy, happiness, optimism
+//   Green  (120°) = positive, calm, growth, balance
+//   Blue   (210°) = sadness, calm, serenity
+//   Purple (270°) = fear, anxiety
+//   Olive  (60°)  = disgust, contempt
+//   Grey   (0°,0%)= neutral, apathy
+const SENTIMENT_HUE_MAP = {
+  anger:       { h: 0,   s: 75 },
+  negative:    { h: 0,   s: 75 },
+  frustration: { h: 10,  s: 70 },
+  hostility:   { h: 0,   s: 80 },
+  disgust:     { h: 60,  s: 55 },
+  contempt:    { h: 60,  s: 55 },
+  fear:        { h: 270, s: 65 },
+  anxiety:     { h: 270, s: 60 },
+  sadness:     { h: 210, s: 65 },
+  surprise:    { h: 30,  s: 80 },
+  joy:         { h: 50,  s: 85 },
+  happiness:   { h: 50,  s: 85 },
+  positive:    { h: 120, s: 60 },
+  neutral:     { h: 0,   s: 0  },
+};
+
+function sentimentColor(label, score) {
+  const key = (label || 'neutral').toLowerCase().trim();
+  const cfg = SENTIMENT_HUE_MAP[key] || SENTIMENT_HUE_MAP['neutral'];
+  // Map score 1-10 to lightness 72%-33%: mild emotion = lighter, intense = darker
+  const lightness = 72 - ((score - 1) / 9) * 39;
+  const bg = `hsl(${cfg.h}, ${cfg.s}%, ${lightness.toFixed(0)}%)`;
+  // Use dark text on light backgrounds, white text on dark backgrounds
+  const textColor = lightness > 55 ? '#212529' : '#ffffff';
+  return `background-color: ${bg}; color: ${textColor};`;
+}
+
 function formatDateTime(isoStr) {
   if (!isoStr) return '-';
   try {
