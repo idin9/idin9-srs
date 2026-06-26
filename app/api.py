@@ -106,6 +106,7 @@ def create_router():
                 transcript=info.transcript or "",
                 sentiment_score=info.sentiment_score or 1.0,
                 sentiment_label=info.sentiment_label or "neutral",
+                bad_word_percentage=info.bad_word_percentage or 0.0,
             )
         # Fall back to indexer for completed sessions
         indexer = request.app.state.indexer
@@ -117,6 +118,7 @@ def create_router():
             transcript=record.get("transcript", ""),
             sentiment_score=record.get("sentiment_score", 1.0),
             sentiment_label=record.get("sentiment_label", "neutral"),
+            bad_word_percentage=record.get("bad_word_percentage", 0.0),
         )
 
     # ===================== AUDIO FILE =====================
@@ -164,7 +166,9 @@ def create_router():
             import io
             from fastapi.responses import StreamingResponse
             
-            password = settings.encryption_password or "idin9-srs-default-pass"
+            password = settings.encryption_password
+            if not password:
+                raise HTTPException(500, detail="Audio file is encrypted but no encryption password is configured. Set it in Administrator settings.")
             try:
                 decrypted_bytes = decrypt_file(resolved, password)
                 return StreamingResponse(
@@ -220,6 +224,7 @@ def create_router():
         start_time_to: Optional[str] = Query(None, description="Filter recordings ending before this time (ISO format)"),
         caller: Optional[str] = Query(None, description="Filter by caller ID"),
         callee: Optional[str] = Query(None, description="Filter by callee ID"),
+        query: Optional[str] = Query(None, description="Combined search across caller, callee, and XML metadata"),
         min_sentiment: Optional[float] = Query(None, ge=1.0, le=10.0, description="Minimum sentiment score (1-10)"),
         max_sentiment: Optional[float] = Query(None, ge=1.0, le=10.0, description="Maximum sentiment score (1-10)"),
     ):
@@ -232,6 +237,7 @@ def create_router():
             start_time_to=start_time_to,
             caller=caller,
             callee=callee,
+            query=query,
             min_sentiment=min_sentiment,
             max_sentiment=max_sentiment,
         )
@@ -240,6 +246,7 @@ def create_router():
             start_time_to=start_time_to,
             caller=caller,
             callee=callee,
+            query=query,
             min_sentiment=min_sentiment,
             max_sentiment=max_sentiment,
         )
@@ -301,6 +308,7 @@ def create_router():
             "encryption_enabled": cfg.encryption_enabled,
             "encryption_password": _mask(cfg.encryption_password),
             "session_timeout_seconds": cfg.session_timeout_seconds,
+            "whisper_language": cfg.whisper_language,
         }
 
     @router.put(
@@ -346,6 +354,7 @@ def create_router():
             "audio_format",
             "encryption_enabled",
             "encryption_password",
+            "session_timeout_seconds",
         }
 
         project_root = Path(__file__).parent.parent
@@ -392,6 +401,27 @@ def create_router():
         }
 
     # ===================== MAINTENANCE =====================
+
+    @router.get(
+        "/maintenance/sip-pcap",
+        summary="Export captured SIP messages as a pcap file",
+    )
+    async def export_sip_pcap(request: Request, user: dict = Depends(verify_admin)):
+        """Download a pcap file containing recently captured SIP signalling packets."""
+        from .sip_stack import get_sip_packets, build_pcap
+        from .config import settings as cfg
+        from fastapi.responses import Response
+
+        packets = get_sip_packets()
+        if not packets:
+            raise HTTPException(404, detail="No SIP packets captured yet")
+
+        pcap_data = build_pcap(packets, cfg.sip_listen_host or "0.0.0.0", cfg.sip_listen_port)
+        return Response(
+            content=pcap_data,
+            media_type="application/vnd.tcpdump.pcap",
+            headers={"Content-Disposition": "attachment; filename=sip_capture.pcap"},
+        )
 
     @router.post(
         "/maintenance/cleanup",
@@ -494,6 +524,7 @@ def create_router():
                     sentiment_label=sentiment_label,
                     transcript=transcript,
                     bad_word_percentage=bad_word_percentage,
+                    xml_metadata=record.get("xml_metadata"),
                 )
 
                 processed += 1
@@ -516,7 +547,6 @@ def create_router():
     )
     async def generate_single(session_id: str, request: Request, user: dict = Depends(verify_admin)):
         """Generate transcript and sentiment for a single recording that is missing them."""
-        _validate_uuid(session_id)
         indexer = request.app.state.indexer
         sm = request.app.state.session_manager
         from .config import settings as cfg
@@ -566,6 +596,7 @@ def create_router():
                 sentiment_label=sentiment_label,
                 transcript=transcript,
                 bad_word_percentage=bad_word_percentage,
+                xml_metadata=record.get("xml_metadata"),
             )
 
             return {
@@ -677,7 +708,7 @@ def create_router():
 
         return {
             "service": "idin9-srs",
-            "version": "26.06.05",
+            "version": "26.06.06",
             "auth_mode": settings.auth_mode,
             "auth_required": auth_required,
         }

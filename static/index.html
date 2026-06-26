@@ -68,6 +68,9 @@
     .sentiment-low { background-color: #d1e7dd; color: #0f5132; }
     .sentiment-mid { background-color: #fff3cd; color: #664d03; }
     .sentiment-high { background-color: #f8d7da; color: #842029; }
+    .sentiment-negative { background-color: #f8d7da; color: #842029; }
+    .sentiment-neutral { background-color: #e2e3e5; color: #41464b; }
+    .sentiment-positive { background-color: #d1e7dd; color: #0f5132; }
     .badword-badge {
       font-weight: 600;
       padding: 0.35em 0.65em;
@@ -79,6 +82,14 @@
     }
     .gen-btn {
       margin-left: 0.25rem;
+    }
+    .card-body-disabled .form-control,
+    .card-body-disabled .form-select,
+    .card-body-disabled .form-text,
+    .card-body-disabled h6,
+    .card-body-disabled label {
+      opacity: 0.45;
+      pointer-events: none;
     }
     /* Switch styling */
     .switch {
@@ -153,7 +164,7 @@
     
     <hr>
     <div class="footer text-muted small">
-      <p class="mb-1">idin9-srs v26.06.04</p>
+      <p class="mb-1">idin9-srs v26.06.06</p>
       <a href="/docs" target="_blank" class="text-decoration-none"><i class="bi bi-book me-1"></i>API Docs</a>
       <div class="mt-2"><button class="btn btn-sm btn-outline-secondary" onclick="logout()">Logout</button></div>
     </div>
@@ -186,13 +197,9 @@
               <label class="form-label small text-muted">Date/Time To</label>
               <input type="datetime-local" id="filter-end" class="form-control" step="1">
             </div>
-            <div class="col-md-3">
-              <label class="form-label small text-muted">Caller</label>
-              <input type="text" id="filter-caller" class="form-control" placeholder="sip:agent@domain">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label small text-muted">Callee</label>
-              <input type="text" id="filter-callee" class="form-control" placeholder="sip:customer@domain">
+            <div class="col-md-6">
+              <label class="form-label small text-muted">Search (caller, callee, or XML metadata)</label>
+              <input type="text" id="filter-query" class="form-control" placeholder="sip:agent@domain, sip:customer@domain, or XML content">
             </div>
           </div>
           <div class="row g-3">
@@ -229,6 +236,7 @@
                   <th class="px-3">Date/Time</th>
                   <th>Caller</th>
                   <th>Callee</th>
+                  <th>XML</th>
                   <th>Duration</th>
                   <th>Sentiment</th>
                   <th>Transcript</th>
@@ -236,7 +244,7 @@
                 </tr>
               </thead>
               <tbody id="results-body">
-                <tr><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-2 d-block mb-2"></i>Use the search filters above to load recordings.</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-5"><i class="bi bi-inbox fs-2 d-block mb-2"></i>Use the search filters above to load recordings.</td></tr>
               </tbody>
             </table>
           </div>
@@ -315,22 +323,27 @@
               <div class="card-body d-flex flex-column gap-3">
                 <div>
                   <label class="form-label text-muted small mb-1">SIP Listen Host</label>
-                  <input type="text" name="sip_listen_host" class="form-control" readonly>
+                  <input type="text" name="sip_listen_host" class="form-control">
                   <span class="form-text text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Requires restart</span>
                 </div>
                 <div>
                   <label class="form-label text-muted small mb-1">SIP Listen Port</label>
-                  <input type="number" name="sip_listen_port" class="form-control" readonly>
+                  <input type="number" name="sip_listen_port" class="form-control">
                   <span class="form-text text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Requires restart &amp; root privileges for &lt;1024</span>
                 </div>
                 <div>
                   <label class="form-label text-muted small mb-1">RTP Port Range</label>
                   <div class="input-group">
-                    <input type="number" name="rtp_min_port" class="form-control text-center" readonly>
+                    <input type="number" name="rtp_min_port" class="form-control text-center">
                     <span class="input-group-text">-</span>
-                    <input type="number" name="rtp_max_port" class="form-control text-center" readonly>
+                    <input type="number" name="rtp_max_port" class="form-control text-center">
                   </div>
                   <span class="form-text text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Requires restart</span>
+                </div>
+                <div>
+                  <label class="form-label text-muted small mb-1">Session Timeout (seconds, 0=off)</label>
+                  <input type="number" name="session_timeout_seconds" class="form-control" min="0" max="86400">
+                  <span class="form-text text-muted small">Auto-stop sessions with no RTP activity for this duration</span>
                 </div>
                 <div>
                   <label class="form-label text-muted small mb-1">Server Auth Mode</label>
@@ -391,11 +404,13 @@
               <div class="card-body d-flex flex-column gap-3">
                 <div>
                   <label class="form-label text-muted small mb-1">Output Directory</label>
-                  <input type="text" name="output_dir" class="form-control" readonly>
+                  <input type="text" name="output_dir" class="form-control">
+                  <span class="form-text text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Requires restart</span>
                 </div>
                 <div>
                   <label class="form-label text-muted small mb-1">Index Database</label>
-                  <input type="text" name="index_db" class="form-control" readonly>
+                  <input type="text" name="index_db" class="form-control">
+                  <span class="form-text text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Requires restart</span>
                 </div>
                 <div>
                   <label class="form-label text-muted small mb-1">Retention (years)</label>
@@ -442,10 +457,20 @@
               <div class="card-header bg-white py-3">
                 <h5 class="card-title mb-0 text-secondary fw-semibold"><i class="bi bi-mic me-2"></i>AI Provider (Transcription)</h5>
               </div>
-              <div class="card-body d-flex flex-column gap-3">
+              <div class="card-body d-flex flex-column gap-3" id="transcription-card-body">
+                <div class="d-flex align-items-center justify-content-between p-2 bg-light rounded border">
+                  <div>
+                    <span class="fw-semibold text-dark d-block">Enable Speech-to-Text</span>
+                    <span class="text-muted small">Disable to store raw voice recording only</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" name="transcription_enabled" checked onchange="toggleCardEnabled('transcription-card-body', this.checked)">
+                    <span class="slider"></span>
+                  </label>
+                </div>
                 <div>
                   <label class="form-label text-muted small mb-1">Provider Backend</label>
-                  <select name="transcription_provider" class="form-select">
+                  <select name="transcription_provider" class="form-select" onchange="toggleLocalConfig('transcription_provider', 'transcription-local-config')">
                     <option value="local">local (Whisper locally)</option>
                     <option value="openai">openai (OpenAI Whisper API)</option>
                     <option value="ollama">ollama (Ollama local/remote API)</option>
@@ -468,6 +493,7 @@
                   <span class="form-text text-muted small">e.g., whisper-1 (OpenAI), whisper (Ollama)</span>
                 </div>
                 
+                <div id="transcription-local-config" style="display:none">
                 <h6 class="mt-3 text-primary border-bottom pb-1 fw-bold"><i class="bi bi-cpu me-1"></i>Local Whisper Configuration</h6>
                 <div>
                   <label class="form-label text-muted small mb-1">Model Size</label>
@@ -505,15 +531,6 @@
                   <label class="form-label text-muted small mb-1">Local Cache Directory</label>
                   <input type="text" name="whisper_cache_dir" class="form-control" placeholder="Default directory (~/.cache/whisper)">
                 </div>
-                <div class="d-flex align-items-center justify-content-between p-2 bg-light rounded border mt-2">
-                  <div>
-                    <span class="fw-semibold text-dark d-block">Enable Speech-to-Text</span>
-                    <span class="text-muted small">Disable to store raw voice recording only</span>
-                  </div>
-                  <label class="switch">
-                    <input type="checkbox" name="transcription_enabled" checked>
-                    <span class="slider"></span>
-                  </label>
                 </div>
               </div>
             </div>
@@ -525,10 +542,20 @@
               <div class="card-header bg-white py-3">
                 <h5 class="card-title mb-0 text-secondary fw-semibold"><i class="bi bi-emoji-smile me-2"></i>AI Provider (Sentiment Analysis)</h5>
               </div>
-              <div class="card-body d-flex flex-column gap-3">
+              <div class="card-body d-flex flex-column gap-3" id="sentiment-card-body">
+                <div class="d-flex align-items-center justify-content-between p-2 bg-light rounded border">
+                  <div>
+                    <span class="fw-semibold text-dark d-block">Enable Sentiment Analysis</span>
+                    <span class="text-muted small">Disable to bypass emotional rating (defaults to 1.0)</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" name="sentiment_enabled" checked onchange="toggleCardEnabled('sentiment-card-body', this.checked)">
+                    <span class="slider"></span>
+                  </label>
+                </div>
                 <div>
                   <label class="form-label text-muted small mb-1">Provider Backend</label>
-                  <select name="sentiment_provider" class="form-select">
+                  <select name="sentiment_provider" class="form-select" onchange="toggleLocalConfig('sentiment_provider', 'sentiment-local-config')">
                     <option value="local">local (HuggingFace locally)</option>
                     <option value="openai">openai (OpenAI Chat API)</option>
                     <option value="ollama">ollama (Ollama local/remote API)</option>
@@ -551,10 +578,11 @@
                   <span class="form-text text-muted small">e.g., gpt-4o-mini (OpenAI), llama3.2 (Ollama)</span>
                 </div>
 
+                <div id="sentiment-local-config" style="display:none">
                 <h6 class="mt-3 text-primary border-bottom pb-1 fw-bold"><i class="bi bi-cpu me-1"></i>Local Sentiment Configuration</h6>
                 <div>
                   <label class="form-label text-muted small mb-1">Local Model Name</label>
-                  <input type="text" name="sentiment_model" class="form-control" readonly>
+                  <input type="text" name="sentiment_model" class="form-control">
                 </div>
                 <div>
                   <label class="form-label text-muted small mb-1">Local Cache Directory</label>
@@ -565,15 +593,6 @@
                   <textarea name="sentiment_mapping" rows="4" class="form-control font-monospace" style="font-size:0.85rem;"></textarea>
                   <span class="form-text text-muted small">JSON config mapping labels to score weighting</span>
                 </div>
-                <div class="d-flex align-items-center justify-content-between p-2 bg-light rounded border mt-2">
-                  <div>
-                    <span class="fw-semibold text-dark d-block">Enable Sentiment Analysis</span>
-                    <span class="text-muted small">Disable to bypass emotional rating (defaults to 1.0)</span>
-                  </div>
-                  <label class="switch">
-                    <input type="checkbox" name="sentiment_enabled" checked>
-                    <span class="slider"></span>
-                  </label>
                 </div>
               </div>
             </div>
@@ -716,6 +735,17 @@
         <div class="card-body d-flex align-items-center gap-3">
           <button class="btn btn-warning" onclick="triggerCleanup()"><i class="bi bi-trash3 me-2"></i>Run Retention Cleanup</button>
           <span id="cleanup-status" class="fw-semibold small"></span>
+        </div>
+      </div>
+
+      <!-- SIP PCAP Export Card -->
+      <div class="card border-info shadow-sm mt-4">
+        <div class="card-header bg-info-subtle py-3 border-info">
+          <h5 class="card-title mb-0 text-info-emphasis fw-bold"><i class="bi bi-download me-2"></i>SIP Packet Capture Export</h5>
+        </div>
+        <div class="card-body d-flex align-items-center gap-3">
+          <button class="btn btn-info text-white" onclick="exportSipPcap()"><i class="bi bi-file-binary me-2"></i>Download SIP PCAP</button>
+          <span id="pcap-status" class="fw-semibold small text-muted">Exports recently captured SIP signalling messages as a .pcap file (open with Wireshark)</span>
         </div>
       </div>
     </section>

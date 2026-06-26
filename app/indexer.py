@@ -44,6 +44,7 @@ class RecordingIndexer:
         """Apply schema migrations for older databases."""
         migrations = [
             "ALTER TABLE recordings ADD COLUMN recorded_by TEXT DEFAULT NULL",
+            "ALTER TABLE recordings ADD COLUMN xml_metadata TEXT DEFAULT NULL",
         ]
         for sql in migrations:
             try:
@@ -63,13 +64,14 @@ class RecordingIndexer:
                       sentiment_label: str,
                       transcript: str,
                       bad_word_percentage: float = 0.0,
-                      recorded_by: Optional[str] = None) -> None:
+                      recorded_by: Optional[str] = None,
+                      xml_metadata: Optional[str] = None) -> None:
         """Add or update a recording record."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute('''
                 INSERT OR REPLACE INTO recordings
-                (session_id, caller, callee, start_time, end_time, wav_path, duration, sentiment_score, sentiment_label, transcript, bad_word_percentage, recorded_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (session_id, caller, callee, start_time, end_time, wav_path, duration, sentiment_score, sentiment_label, transcript, bad_word_percentage, recorded_by, xml_metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 session_id,
                 caller,
@@ -83,6 +85,7 @@ class RecordingIndexer:
                 transcript,
                 bad_word_percentage,
                 recorded_by,
+                xml_metadata,
             ))
             conn.commit()
 
@@ -105,37 +108,42 @@ class RecordingIndexer:
                         start_time_to: Optional[str] = None,
                         caller: Optional[str] = None,
                         callee: Optional[str] = None,
+                        query: Optional[str] = None,
                         min_sentiment: Optional[float] = None,
                         max_sentiment: Optional[float] = None) -> List[Dict[str, Any]]:
         """List recordings with optional filters."""
-        query = 'SELECT * FROM recordings WHERE 1=1'
+        query_str = 'SELECT * FROM recordings WHERE 1=1'
         params = []
 
         if start_time_from:
-            query += ' AND end_time >= ?'
+            query_str += ' AND end_time >= ?'
             params.append(start_time_from)
         if start_time_to:
-            query += ' AND end_time <= ?'
+            query_str += ' AND end_time <= ?'
             params.append(start_time_to)
         if caller:
-            query += ' AND caller = ?'
+            query_str += ' AND caller = ?'
             params.append(caller)
         if callee:
-            query += ' AND callee = ?'
+            query_str += ' AND callee = ?'
             params.append(callee)
+        if query:
+            query_str += ' AND (caller LIKE ? OR callee LIKE ? OR xml_metadata LIKE ?)'
+            like = f'%{query}%'
+            params.extend([like, like, like])
         if min_sentiment is not None:
-            query += ' AND sentiment_score >= ?'
+            query_str += ' AND sentiment_score >= ?'
             params.append(min_sentiment)
         if max_sentiment is not None:
-            query += ' AND sentiment_score <= ?'
+            query_str += ' AND sentiment_score <= ?'
             params.append(max_sentiment)
 
-        query += ' ORDER BY end_time DESC LIMIT ? OFFSET ?'
+        query_str += ' ORDER BY end_time DESC LIMIT ? OFFSET ?'
         params.extend([limit, offset])
 
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute(query, params)
+            cursor = conn.execute(query_str, params)
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
 
@@ -144,33 +152,38 @@ class RecordingIndexer:
                         start_time_to: Optional[str] = None,
                         caller: Optional[str] = None,
                         callee: Optional[str] = None,
+                        query: Optional[str] = None,
                         min_sentiment: Optional[float] = None,
                         max_sentiment: Optional[float] = None) -> int:
         """Get total count of recordings matching filters."""
-        query = 'SELECT COUNT(*) FROM recordings WHERE 1=1'
+        query_str = 'SELECT COUNT(*) FROM recordings WHERE 1=1'
         params = []
 
         if start_time_from:
-            query += ' AND end_time >= ?'
+            query_str += ' AND end_time >= ?'
             params.append(start_time_from)
         if start_time_to:
-            query += ' AND end_time <= ?'
+            query_str += ' AND end_time <= ?'
             params.append(start_time_to)
         if caller:
-            query += ' AND caller = ?'
+            query_str += ' AND caller = ?'
             params.append(caller)
         if callee:
-            query += ' AND callee = ?'
+            query_str += ' AND callee = ?'
             params.append(callee)
+        if query:
+            query_str += ' AND (caller LIKE ? OR callee LIKE ? OR xml_metadata LIKE ?)'
+            like = f'%{query}%'
+            params.extend([like, like, like])
         if min_sentiment is not None:
-            query += ' AND sentiment_score >= ?'
+            query_str += ' AND sentiment_score >= ?'
             params.append(min_sentiment)
         if max_sentiment is not None:
-            query += ' AND sentiment_score <= ?'
+            query_str += ' AND sentiment_score <= ?'
             params.append(max_sentiment)
 
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(query, params)
+            cursor = conn.execute(query_str, params)
             return cursor.fetchone()[0]
 
     def cleanup_old_recordings(self, retention_years: int) -> int:

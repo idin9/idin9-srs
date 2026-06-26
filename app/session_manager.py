@@ -82,6 +82,7 @@ class SessionManager:
         caller: str = "",
         callee: str = "",
         xml_metadata: Optional[dict] = None,
+        raw_xml: str = "",
     ) -> SessionInfo:
         """
         Create a recording session with multiple RTP streams.
@@ -98,6 +99,7 @@ class SessionManager:
             callee=callee,
             state=SessionState.recording,
             start_time=datetime.utcnow().isoformat(),
+            xml_metadata=raw_xml if raw_xml else (json.dumps(xml_metadata) if xml_metadata else None),
         )
         self._sessions[session_id] = info
 
@@ -263,6 +265,7 @@ class SessionManager:
                 sentiment_label=info.sentiment_label,
                 transcript=info.transcript,
                 bad_word_percentage=info.bad_word_percentage,
+                xml_metadata=info.xml_metadata,
             )
 
         self._last_audio_time.pop(session_id, None)

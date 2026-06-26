@@ -22,6 +22,7 @@ class SessionInfo(BaseModel):
     start_time: Optional[str] = None  # ISO format datetime string
     end_time: Optional[str] = None    # ISO format datetime string
     bad_word_percentage: float = 0.0
+    xml_metadata: Optional[str] = None  # Raw SIPREC XML metadata from INVITE
 
 
 class StartRecordResponse(BaseModel):
@@ -42,6 +43,7 @@ class SentimentTranscriptResponse(BaseModel):
     transcript: str
     sentiment_score: float
     sentiment_label: str
+    bad_word_percentage: float = 0.0
 
 
 class RecordingInfo(BaseModel):

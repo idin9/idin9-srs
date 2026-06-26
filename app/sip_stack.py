@@ -3,8 +3,11 @@ import re
 import socket
 import uuid
 import logging
+import time
+import struct
 from datetime import datetime
 from typing import Optional, Callable
+from collections import deque
 
 from .mime_parser import (
     parse_multipart_body,
@@ -17,6 +20,45 @@ from .mime_parser import (
 logger = logging.getLogger(__name__)
 
 SIP_VERSION = "SIP/2.0"
+
+# Buffer for raw SIP packets (for pcap export) — (timestamp, src_ip, src_port, raw_bytes)
+_sip_packet_buffer: deque = deque(maxlen=500)
+
+
+def get_sip_packets() -> list:
+    """Return captured SIP packets for pcap export."""
+    return list(_sip_packet_buffer)
+
+
+def build_pcap(packets: list, server_ip: str, server_port: int) -> bytes:
+    """Build a pcap file from captured SIP packets."""
+    # pcap global header (little-endian)
+    pcap = struct.pack('<IHHiIII',
+        0xa1b2c3d4,  # magic
+        2, 4,         # version major, minor
+        0,            # thiszone
+        0,            # sigfigs
+        65535,        # snaplen
+        228,          # linktype: LINKTYPE_IPV4
+    )
+    for ts, src_ip, src_port, raw in packets:
+        # Build IPv4/UDP packet wrapper
+        dst_ip_bytes = socket.inet_aton(server_ip)
+        src_ip_bytes = socket.inet_aton(src_ip)
+        udp_len = 8 + len(raw)
+        udp_header = struct.pack('!HHHH', src_port, server_port, udp_len, 0)
+        total_len = 20 + udp_len
+        # IPv4 header (no options)
+        ip_header = struct.pack('!BBHHHBBH4s4s',
+            0x45, 0x00, total_len, 0x0000, 0x4000, 64, 17, 0,
+            src_ip_bytes, dst_ip_bytes,
+        )
+        frame = ip_header + udp_header + raw
+        ts_sec = int(ts)
+        ts_usec = int((ts - ts_sec) * 1000000)
+        pcap += struct.pack('<IIII', ts_sec, ts_usec, len(frame), len(frame))
+        pcap += frame
+    return pcap
 
 RESPONSE_TEMPLATE = (
     "{sip_version} {status_code} {reason_phrase}\r\n"
@@ -173,6 +215,15 @@ class Idin9SrsServer:
     def handle_request(self, data: bytes, addr: tuple):
         msg = parse_sip_message(data)
         method = msg.get("method", "")
+        call_id = msg.get("headers", {}).get("Call-ID", "unknown")
+
+        # Log full SIP message for the Live Console
+        raw_text = data.decode("utf-8", errors="replace")
+        logger.info("── SIP RX from %s:%s ──\n%s", addr[0], addr[1], raw_text)
+
+        # Capture packet for pcap export
+        _sip_packet_buffer.append((time.time(), addr[0], addr[1], data))
+
         if method == "INVITE":
             asyncio.run_coroutine_threadsafe(
                 self._handle_invite(msg, addr), self.loop
@@ -182,7 +233,7 @@ class Idin9SrsServer:
                 self._handle_bye(msg, addr), self.loop
             )
         elif method == "ACK":
-            logger.info("Received ACK from %s for %s", addr, msg.get("headers", {}).get("Call-ID", "unknown"))
+            logger.info("Received ACK from %s for %s", addr, call_id)
 
     async def _handle_invite(self, msg: dict, addr: tuple):
         call_id = msg["headers"].get("Call-ID", str(uuid.uuid4()))
@@ -190,6 +241,7 @@ class Idin9SrsServer:
 
         sdp_body = msg.get("body", "")
         xml_metadata = {}
+        raw_xml = ""
         remote_ip = addr[0]
 
         # Check for multipart MIME (SDP + XML metadata)
@@ -200,6 +252,7 @@ class Idin9SrsServer:
                 if 'application/sdp' in ct:
                     sdp_body = part['content']
                 elif 'application/xml' in ct or 'text/xml' in ct or 'xml' in ct:
+                    raw_xml = part['content']
                     xml_metadata = extract_recording_metadata(part['content'])
         elif 'application/sdp' in content_type:
             sdp_body = msg.get("body", "")
@@ -240,6 +293,7 @@ class Idin9SrsServer:
             self.server_ip,
         )
         self.transport.sendto(response_200, addr)
+        logger.info("── SIP TX to %s:%s ──\n%s", addr[0], addr[1], response_200.decode("utf-8", errors="replace"))
         logger.info(
             "Sent 200 OK for call %s, %d stream(s) on ports %s",
             call_id, len(allocated_ports), allocated_ports,
@@ -249,6 +303,7 @@ class Idin9SrsServer:
         try:
             response_ack = build_ack(msg)
             self.transport.sendto(response_ack, addr)
+            logger.info("── SIP TX to %s:%s ──\n%s", addr[0], addr[1], response_ack.decode("utf-8", errors="replace"))
         except Exception:
             pass
 
@@ -259,6 +314,7 @@ class Idin9SrsServer:
             caller=caller,
             callee=callee,
             xml_metadata=xml_metadata,
+            raw_xml=raw_xml,
         )
 
     async def _handle_bye(self, msg: dict, addr: tuple):
@@ -271,6 +327,7 @@ class Idin9SrsServer:
                 self.server_ip,
             )
             self.transport.sendto(response, addr)
+            logger.info("── SIP TX to %s:%s ──\n%s", addr[0], addr[1], response.decode("utf-8", errors="replace"))
         except Exception as e:
             logger.error("Failed to send 200 OK for BYE: %s", e)
         logger.info("Session %s ended via BYE", call_id)
