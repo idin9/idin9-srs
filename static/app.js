@@ -502,7 +502,7 @@ function populateAdminForm(config) {
     'sip_listen_host', 'sip_listen_port',
     'rtp_min_port', 'rtp_max_port',
     'session_timeout_seconds',
-    'api_key', 'auth_mode', 'timezone', 'locale', 'font_family',
+    'api_key', 'auth_mode', 'jwt_secret', 'timezone', 'locale', 'font_family',
     'transcription_provider', 'transcription_api_key', 'transcription_api_url', 'transcription_api_model',
     'whisper_device', 'whisper_cache_dir', 'whisper_compute_type', 'whisper_language',
     'sentiment_provider', 'sentiment_api_key', 'sentiment_api_url', 'sentiment_api_model',
@@ -586,6 +586,7 @@ async function saveSettings(event) {
     session_timeout_seconds: parseInt(getVal('session_timeout_seconds')) || 0,
     api_key: getVal('api_key'),
     auth_mode: getVal('auth_mode'),
+    jwt_secret: getVal('jwt_secret') || undefined,
     timezone: getVal('timezone'),
     locale: getVal('locale'),
     font_family: getVal('font_family'),
@@ -827,7 +828,7 @@ async function generateSingle(sessionId) {
 //   Blue   (210°) = sadness, calm, serenity
 //   Purple (270°) = fear, anxiety
 //   Olive  (60°)  = disgust, contempt
-//   Grey   (0°,0%)= neutral, apathy
+//   Teal/Slate = neutral, apathy
 const SENTIMENT_HUE_MAP = {
   anger:       { h: 0,   s: 75 },
   negative:    { h: 0,   s: 75 },
@@ -842,17 +843,17 @@ const SENTIMENT_HUE_MAP = {
   joy:         { h: 50,  s: 85 },
   happiness:   { h: 50,  s: 85 },
   positive:    { h: 120, s: 60 },
-  neutral:     { h: 0,   s: 0  },
+  neutral:     { h: 200, s: 30 },
 };
 
 function sentimentColor(label, score) {
   const key = (label || 'neutral').toLowerCase().trim();
   const cfg = SENTIMENT_HUE_MAP[key] || SENTIMENT_HUE_MAP['neutral'];
-  // Map score 1-10 to lightness 72%-33%: mild emotion = lighter, intense = darker
-  const lightness = 72 - ((score - 1) / 9) * 39;
+  // Map score 1-10 to lightness 85%-50%: mild emotion = lighter, intense = bolder, avoiding black
+  const lightness = 85 - ((score - 1) / 9) * 35;
   const bg = `hsl(${cfg.h}, ${cfg.s}%, ${lightness.toFixed(0)}%)`;
   // Use dark text on light backgrounds, white text on dark backgrounds
-  const textColor = lightness > 55 ? '#212529' : '#ffffff';
+  const textColor = lightness > 65 ? '#212529' : '#ffffff';
   return `background-color: ${bg}; color: ${textColor};`;
 }
 

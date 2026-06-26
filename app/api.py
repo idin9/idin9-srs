@@ -281,6 +281,7 @@ def create_router():
             "api_port": cfg.api_port,
             "api_key": _mask(cfg.api_key),
             "auth_mode": cfg.auth_mode,
+            "jwt_secret": _mask(cfg.jwt_secret),
             "timezone": cfg.timezone,
             "locale": cfg.locale,
             "font_family": cfg.font_family,
@@ -327,6 +328,7 @@ def create_router():
             "rtp_max_port",
             "api_key",
             "auth_mode",
+            "jwt_secret",
             "timezone",
             "locale",
             "font_family",
@@ -375,7 +377,7 @@ def create_router():
             if key in payload and payload[key] is not None:
                 val = payload[key]
                 # Skip empty password values — preserve existing (.env or override)
-                if key == "encryption_password" and not str(val).strip():
+                if key in ("encryption_password", "jwt_secret") and not str(val).strip():
                     continue
                 if key in ("retention_years", "session_timeout_seconds", "sip_listen_port", "api_port", "rtp_min_port", "rtp_max_port") and val is not None:
                     val = int(val)
@@ -711,7 +713,7 @@ def create_router():
 
         return {
             "service": "idin9-srs",
-            "version": "26.06.09",
+            "version": "26.06.10",
             "auth_mode": settings.auth_mode,
             "auth_required": auth_required,
         }
