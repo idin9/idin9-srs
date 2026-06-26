@@ -374,6 +374,9 @@ def create_router():
         for key in allowed_fields:
             if key in payload and payload[key] is not None:
                 val = payload[key]
+                # Skip empty password values — preserve existing (.env or override)
+                if key == "encryption_password" and not str(val).strip():
+                    continue
                 if key in ("retention_years", "session_timeout_seconds", "sip_listen_port", "api_port", "rtp_min_port", "rtp_max_port") and val is not None:
                     val = int(val)
                 elif key in ("transcription_enabled", "sentiment_enabled", "encryption_enabled") and val is not None:
@@ -708,7 +711,7 @@ def create_router():
 
         return {
             "service": "idin9-srs",
-            "version": "26.06.08",
+            "version": "26.06.09",
             "auth_mode": settings.auth_mode,
             "auth_required": auth_required,
         }

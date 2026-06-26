@@ -612,10 +612,10 @@ async function saveSettings(event) {
     index_db: getVal('index_db'),
     audio_format: getVal('audio_format'),
     encryption_enabled: getVal('encryption_enabled'),
-    encryption_password: getVal('encryption_password'),
+    encryption_password: getVal('encryption_password') || undefined,
   };
 
-  // Strip undefined fields so masked secrets aren't overwritten
+  // Strip undefined fields so masked/empty secrets aren't overwritten
   Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
   try {
