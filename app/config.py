@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     # Leave empty to disable authentication (no API key required).
     api_key: str = ""
     output_dir: str = "recordings"
-    audio_format: str = "wav"  # "wav" or "opus"
-    encryption_enabled: bool = False
+    audio_format: str = "opus"  # "wav" or "opus"
+    encryption_enabled: bool = True
     encryption_password: str = ""
 
     # ── Transcription Provider ─────────────────────────
@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     whisper_device: str = "auto"
     whisper_compute_type: str = "auto"
     whisper_cache_dir: str = ""
+    whisper_language: str = ""
 
     # ── Sentiment (Local) ───────────────────────────────
     #   English emotion: j-hartmann/emotion-english-distilroberta-base
@@ -73,8 +74,8 @@ class Settings(BaseSettings):
     sentiment_enabled: bool = True
 
     # ── Authentication ──────────────────────────────────
-    auth_mode: str = "api_key" # "api_key", "local", "both"
-    jwt_secret: str = "idin9-srs-super-secret-jwt-key-change-me"
+    auth_mode: str = "local" # "api_key", "local", "both"
+    jwt_secret: str = ""  # MUST set via .env; empty = hard failure on login
     jwt_algorithm: str = "HS256"
     jwt_expiry_hours: int = 24
 
@@ -86,6 +87,9 @@ class Settings(BaseSettings):
     # ── Retention ───────────────────────────────────────
     retention_years: int = 7
     index_db: str = "index.db"
+
+    # ── Session Timeout ─────────────────────────────────
+    session_timeout_seconds: int = 300
 
     def get_sentiment_mapping(self) -> Dict[str, float]:
         try:

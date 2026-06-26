@@ -123,7 +123,7 @@
 </head>
 <body>
 
-<div class="d-flex flex-column flex-lg-row">
+<div id="app-shell" class="d-flex flex-column flex-lg-row" style="display:none">
   
   <!-- ============ SIDEBAR ============ -->
   <aside class="sidebar d-flex flex-column flex-shrink-0 p-3 border-end">
@@ -284,13 +284,16 @@
       <div class="mb-4">
         <ul class="nav nav-tabs">
           <li class="nav-item">
-            <button class="nav-link active" id="btn-sub-admin" onclick="switchAdminSubTab('settings')">Settings</button>
+            <button class="nav-link active" id="btn-sub-settings" onclick="switchAdminSubTab('settings')">Settings</button>
           </li>
           <li class="nav-item">
             <button class="nav-link" id="btn-sub-users" onclick="switchAdminSubTab('users')">User Management</button>
           </li>
           <li class="nav-item">
             <button class="nav-link" id="btn-sub-console" onclick="switchAdminSubTab('console')">Live Console</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" id="btn-sub-utility" onclick="switchAdminSubTab('utility')">Utility</button>
           </li>
         </ul>
       </div>
@@ -491,6 +494,14 @@
                   <span class="form-text text-muted small">ISO 639-1 code (th, en, ja, etc.). Empty = auto-detect all languages</span>
                 </div>
                 <div>
+                  <label class="form-label text-muted small mb-1">Compute Type</label>
+                  <select name="whisper_compute_type" class="form-select">
+                    <option value="auto">auto</option>
+                    <option value="int8">int8 (fastest on CPU)</option>
+                    <option value="float16">float16</option>
+                  </select>
+                </div>
+                <div>
                   <label class="form-label text-muted small mb-1">Local Cache Directory</label>
                   <input type="text" name="whisper_cache_dir" class="form-control" placeholder="Default directory (~/.cache/whisper)">
                 </div>
@@ -576,6 +587,20 @@
           </div>
         </div>
       </form>
+
+      </div>
+
+      <!-- Utility Sub-Tab -->
+      <div id="sub-admin-utility" class="admin-sub-content" style="display:none">
+        <div class="card border-warning shadow-sm">
+          <div class="card-header bg-warning-subtle py-3 border-warning">
+            <h5 class="card-title mb-0 text-warning-emphasis fw-bold"><i class="bi bi-activity me-2"></i>System Actions &amp; Maintenance</h5>
+          </div>
+          <div class="card-body d-flex align-items-center gap-3">
+            <button class="btn btn-warning" onclick="triggerCleanup()"><i class="bi bi-trash3 me-2"></i>Run Retention Cleanup</button>
+            <span id="cleanup-status" class="fw-semibold small"></span>
+          </div>
+        </div>
       </div>
 
       <!-- User Management Sub-Tab -->
@@ -699,7 +724,7 @@
 </div>
 
 <!-- Login Modal -->
-<div id="login-modal" class="custom-modal-backdrop" style="display:none; z-index:1060; background: #fff;">
+<div id="login-modal" class="custom-modal-backdrop" style="z-index:1060; background: #fff;">
   <div class="card shadow-lg p-4" style="width:90%; max-width:400px; border-radius:16px; margin: auto;">
     <div class="text-center mb-4">
       <i class="bi bi-soundwave text-primary" style="font-size: 3rem;"></i>

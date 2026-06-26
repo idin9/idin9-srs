@@ -1,9 +1,24 @@
 import crypt
 import pwd
 import grp
+import time
 import logging
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
+
+# ── Rate limiting ──────────────────────────────────────
+_LOGIN_ATTEMPTS: dict[str, list[float]] = defaultdict(list)
+_LOGIN_WINDOW = 60       # seconds
+_LOGIN_MAX_ATTEMPTS = 5
+
+def check_login_rate_limit(username: str) -> bool:
+    now = time.monotonic()
+    _LOGIN_ATTEMPTS[username] = [t for t in _LOGIN_ATTEMPTS[username] if now - t < _LOGIN_WINDOW]
+    if len(_LOGIN_ATTEMPTS[username]) >= _LOGIN_MAX_ATTEMPTS:
+        return False
+    _LOGIN_ATTEMPTS[username].append(now)
+    return True
 
 def authenticate_local_user(username: str, password: str) -> dict | None:
     """

@@ -37,26 +37,39 @@ class RecordingIndexer:
             conn.execute('CREATE INDEX IF NOT EXISTS idx_caller ON recordings(caller)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_callee ON recordings(callee)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_sentiment_score ON recordings(sentiment_score)')
+            self._migrate_db(conn)
             conn.commit()
+
+    def _migrate_db(self, conn):
+        """Apply schema migrations for older databases."""
+        migrations = [
+            "ALTER TABLE recordings ADD COLUMN recorded_by TEXT DEFAULT NULL",
+        ]
+        for sql in migrations:
+            try:
+                conn.execute(sql)
+            except sqlite3.OperationalError:
+                pass
 
     def add_recording(self,
                       session_id: str,
                       caller: Optional[str],
                       callee: Optional[str],
-                      start_time: str,  # ISO format
-                      end_time: str,    # ISO format
+                      start_time: str,
+                      end_time: str,
                       wav_path: str,
                       duration: float,
                       sentiment_score: float,
                       sentiment_label: str,
                       transcript: str,
-                      bad_word_percentage: float = 0.0) -> None:
+                      bad_word_percentage: float = 0.0,
+                      recorded_by: Optional[str] = None) -> None:
         """Add or update a recording record."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute('''
                 INSERT OR REPLACE INTO recordings
-                (session_id, caller, callee, start_time, end_time, wav_path, duration, sentiment_score, sentiment_label, transcript, bad_word_percentage)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (session_id, caller, callee, start_time, end_time, wav_path, duration, sentiment_score, sentiment_label, transcript, bad_word_percentage, recorded_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 session_id,
                 caller,
@@ -69,6 +82,7 @@ class RecordingIndexer:
                 sentiment_label,
                 transcript,
                 bad_word_percentage,
+                recorded_by,
             ))
             conn.commit()
 

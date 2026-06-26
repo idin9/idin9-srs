@@ -67,6 +67,14 @@ async def lifespan(app: FastAPI):
     # Load runtime config overrides
     load_config_overrides()
 
+    # Auto-generate JWT secret if not configured (tokens invalidated on restart)
+    if not settings.jwt_secret:
+        import secrets
+        settings.jwt_secret = secrets.token_hex(32)
+        logger.info("JWT_SECRET not set in .env — generated random ephemeral secret (tokens invalidated on restart)")
+    if settings.encryption_enabled and not settings.encryption_password:
+        logger.warning("Encryption enabled but ENCRYPTION_PASSWORD is not set in .env")
+
     # Set cache directories for AI models
     whisper_cache = settings.whisper_cache_dir.strip() or None
     hf_cache = settings.hf_cache_dir.strip() or None

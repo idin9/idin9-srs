@@ -9,24 +9,46 @@ let currentUserRole = null;
 let currentOffset = 0;
 const LIMIT = 50;
 
+// ── Session Idle Timeout ────────────────────
+const SESSION_TIMEOUT_MS = 300000;
+let sessionTimer = null;
+
+function resetSessionTimer() {
+  if (sessionTimer) clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(logout, SESSION_TIMEOUT_MS);
+}
+
+function startSessionWatchdog() {
+  const events = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+  events.forEach(ev => document.addEventListener(ev, resetSessionTimer));
+  resetSessionTimer();
+}
+
 function getAuthHeader() {
-  const token = localStorage.getItem('idin9_auth_token');
+  const token = sessionStorage.getItem('idin9_auth_token');
   if (token) return `Bearer ${token}`;
   return null;
 }
 
 function getApiKey() {
-  return localStorage.getItem('idin9_api_key') || '';
+  return sessionStorage.getItem('idin9_api_key') || '';
+}
+
+function setApiKey(key) {
+  sessionStorage.setItem('idin9_api_key', key);
 }
 
 function setAuthToken(token) {
-  localStorage.setItem('idin9_auth_token', token);
+  sessionStorage.setItem('idin9_auth_token', token);
 }
 
 function logout() {
-  localStorage.removeItem('idin9_auth_token');
-  localStorage.removeItem('idin9_api_key');
-  location.reload();
+  if (sessionTimer) clearTimeout(sessionTimer);
+  sessionStorage.removeItem('idin9_auth_token');
+  sessionStorage.removeItem('idin9_api_key');
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('login-modal').style.display = 'flex';
+  currentUserRole = null;
 }
 
 async function apiFetch(url, options = {}) {
@@ -44,14 +66,12 @@ async function apiFetch(url, options = {}) {
   
   const res = await fetch(url, { ...options, headers });
 
-  if (res.status === 403 || res.status === 401) {
-    // If we're unauthorized and we have a token, it might be expired
-    if (token) {
-      logout();
-      return;
-    }
-    // Need to login or enter API key
-    document.getElementById('login-modal').style.display = 'flex';
+  if (res.status === 401) {
+    logout();
+    return;
+  }
+  if (res.status === 403) {
+    throw new Error('Access denied');
   }
 
   return res;
@@ -59,50 +79,67 @@ async function apiFetch(url, options = {}) {
 
 // Check if auth is needed on load
 (async function checkAuth() {
+  let authRequired = true;
   try {
     const res = await fetch(`${API_BASE}/info`);
     if (res.ok) {
       const info = await res.json();
       
-      // Update font family if set
       if (info.font_family && info.font_family !== 'system') {
         document.body.style.fontFamily = info.font_family;
       }
       
-      if (info.auth_required && !getAuthHeader() && !getApiKey()) {
-        if (info.auth_mode === 'api_key') {
-          const key = prompt('This server requires an API key. Please enter it:');
-          if (key) {
-            setApiKey(key);
-            location.reload();
-          }
-        } else {
-          document.getElementById('login-modal').style.display = 'flex';
-        }
-      } else if (getAuthHeader() || getApiKey()) {
-        // Fetch user info to set role
-        const meRes = await apiFetch(`${API_BASE}/auth/me`);
-        if (meRes && meRes.ok) {
-          const user = await meRes.json();
-          currentUserRole = user.role;
-          applyRolePermissions();
-        }
+      if (info.auth_required !== undefined) {
+        authRequired = info.auth_required;
       }
     }
   } catch {}
+
+  if (!authRequired) {
+    document.getElementById('app-shell').style.display = 'flex';
+    document.getElementById('login-modal').style.display = 'none';
+    return;
+  }
+
+  if (getAuthHeader() || getApiKey()) {
+    await showApp();
+  }
 })();
 
+async function showApp() {
+  try {
+    const meRes = await apiFetch(`${API_BASE}/auth/me`);
+    if (meRes && meRes.ok) {
+      const user = await meRes.json();
+      currentUserRole = user.role;
+      document.getElementById('app-shell').style.display = 'flex';
+      document.getElementById('login-modal').style.display = 'none';
+      startSessionWatchdog();
+      applyRolePermissions();
+    } else {
+      document.getElementById('app-shell').style.display = 'none';
+      document.getElementById('login-modal').style.display = 'flex';
+    }
+  } catch {
+    document.getElementById('app-shell').style.display = 'none';
+    document.getElementById('login-modal').style.display = 'flex';
+  }
+}
+
 function applyRolePermissions() {
+  const adminBtn = document.querySelector('[data-tab="admin"]');
   if (currentUserRole === 'auditor') {
     // Hide Admin and Utility tabs
-    document.querySelector('[data-tab="admin"]').style.display = 'none';
-    document.querySelector('[data-tab="utility"]').style.display = 'none';
+    if (adminBtn) adminBtn.style.display = 'none';
+    const utilityBtn = document.querySelector('[data-tab="utility"]');
+    if (utilityBtn) utilityBtn.style.display = 'none';
     if (document.querySelector('.tab-btn.active').dataset.tab !== 'auditor') {
       switchTab('auditor');
     }
   } else {
-    document.querySelector('[data-tab="admin"]').style.display = 'block';
-    document.querySelector('[data-tab="utility"]').style.display = 'block';
+    if (adminBtn) adminBtn.style.display = 'block';
+    const utilityBtn = document.querySelector('[data-tab="utility"]');
+    if (utilityBtn) utilityBtn.style.display = 'block';
   }
 }
 
@@ -122,8 +159,7 @@ async function handleLogin(e) {
     if (res.ok) {
       const data = await res.json();
       setAuthToken(data.access_token);
-      document.getElementById('login-modal').style.display = 'none';
-      location.reload(); // Reload to apply role permissions and fetch data
+      await showApp();
     } else {
       errorEl.style.display = 'block';
       if (res.status === 400) {
@@ -284,7 +320,7 @@ function renderResults(recordings) {
 
     const hasTranscript = r.transcript && r.transcript.length > 0;
     return `<tr>
-      <td title="${r.end_time}">${dt}</td>
+      <td title="${escapeAttr(r.end_time)}">${dt}</td>
       <td>${escapeHtml(r.caller || '-')}</td>
       <td>${escapeHtml(r.callee || '-')}</td>
       <td>${dur}</td>
@@ -293,8 +329,8 @@ function renderResults(recordings) {
         ${badWordPct > 0 ? `<span class="badword-badge" title="Bad words: ${badWordPct}% of transcript"><i class="bi bi-emoji-frown"></i>${badWordPct.toFixed(1)}%</span>` : ''}
       </td>
       <td class="actions-cell">
-        <button class="btn btn-primary btn-sm" onclick="playAudio('${encodeURIComponent(r.session_id)}')">Play</button>
-        <button class="btn btn-info btn-sm gen-btn" data-session="${encodeURIComponent(r.session_id)}" onclick="generateSingle('${encodeURIComponent(r.session_id)}')"><i class="bi bi-magic"></i> Gen</button>
+        <button class="btn btn-primary btn-sm" data-sid="${encodeURIComponent(r.session_id)}" onclick="playAudio(this.dataset.sid)">Play</button>
+        <button class="btn btn-info btn-sm gen-btn" data-session="${encodeURIComponent(r.session_id)}" onclick="generateSingle(this.dataset.session)"><i class="bi bi-magic"></i> Gen</button>
         <a href="${API_BASE}/recordings/${encodeURIComponent(r.session_id)}/audio" class="btn btn-secondary btn-sm" download>Export</a>
       </td>
     </tr>`;
@@ -384,12 +420,14 @@ async function playAudio(sessionId) {
     const res = await apiFetch(`${API_BASE}/record/${sessionId}`);
     if (res.ok) {
       const data = await res.json();
+      const sentLabel = escapeHtml(data.sentiment_label || '');
+      const sentScore = data.sentiment_score !== undefined ? data.sentiment_score.toFixed(1) : 'N/A';
       const badWordInfo = data.bad_word_percentage !== undefined && data.bad_word_percentage > 0
         ? `<br><strong>Bad Words:</strong> ${data.bad_word_percentage.toFixed(1)}%`
         : '';
       info.innerHTML = `
         <strong>Transcript:</strong> ${escapeHtml(data.transcript || 'N/A')}<br>
-        <strong>Sentiment:</strong> ${data.sentiment_score !== undefined ? data.sentiment_score.toFixed(1) + ' (' + (data.sentiment_label || '') + ')' : 'N/A'}${badWordInfo}
+        <strong>Sentiment:</strong> ${escapeHtml(sentScore)} (${sentLabel})${badWordInfo}
       `;
     }
   } catch {}
@@ -437,7 +475,7 @@ function populateAdminForm(config) {
     'rtp_min_port', 'rtp_max_port',
     'api_key', 'auth_mode', 'timezone', 'locale', 'font_family',
     'transcription_provider', 'transcription_api_key', 'transcription_api_url', 'transcription_api_model',
-    'whisper_device', 'whisper_cache_dir', 'whisper_language',
+    'whisper_device', 'whisper_cache_dir', 'whisper_compute_type',
     'sentiment_provider', 'sentiment_api_key', 'sentiment_api_url', 'sentiment_api_model',
     'sentiment_model', 'hf_cache_dir',
     'output_dir', 'index_db', 'retention_years',
@@ -487,35 +525,48 @@ async function saveSettings(event) {
     return;
   }
 
-  const payload = {
-    api_key: document.querySelector('[name="api_key"]').value.trim(),
-    auth_mode: document.querySelector('[name="auth_mode"]').value,
-    timezone: document.querySelector('[name="timezone"]').value,
-    locale: document.querySelector('[name="locale"]').value,
-    font_family: document.querySelector('[name="font_family"]').value,
-    transcription_provider: document.querySelector('[name="transcription_provider"]').value,
-    transcription_api_key: document.querySelector('[name="transcription_api_key"]').value.trim(),
-    transcription_api_url: document.querySelector('[name="transcription_api_url"]').value.trim(),
-    transcription_api_model: document.querySelector('[name="transcription_api_model"]').value.trim(),
-    whisper_model_size: document.querySelector('[name="whisper_model_size"]').value,
-    whisper_device: document.querySelector('[name="whisper_device"]').value,
-    whisper_cache_dir: document.querySelector('[name="whisper_cache_dir"]').value.trim(),
-    whisper_language: document.querySelector('[name="whisper_language"]').value.trim(),
-    sentiment_provider: document.querySelector('[name="sentiment_provider"]').value,
-    sentiment_api_key: document.querySelector('[name="sentiment_api_key"]').value.trim(),
-    sentiment_api_url: document.querySelector('[name="sentiment_api_url"]').value.trim(),
-    sentiment_api_model: document.querySelector('[name="sentiment_api_model"]').value.trim(),
-    sentiment_model: document.querySelector('[name="sentiment_model"]').value.trim(),
-    sentiment_mapping: mappingParsed,
-    hf_cache_dir: document.querySelector('[name="hf_cache_dir"]').value.trim(),
-    transcription_enabled: document.querySelector('[name="transcription_enabled"]').checked,
-    sentiment_enabled: document.querySelector('[name="sentiment_enabled"]').checked,
-    retention_years: parseInt(document.querySelector('[name="retention_years"]').value) || 7,
-    output_dir: document.querySelector('[name="output_dir"]').value,
-    audio_format: document.querySelector('[name="audio_format"]').value,
-    encryption_enabled: document.querySelector('[name="encryption_enabled"]').checked,
-    encryption_password: document.querySelector('[name="encryption_password"]').value.trim(),
+  const MASKED = '********';
+
+  const getVal = (name) => {
+    const el = document.querySelector(`[name="${name}"]`);
+    if (!el) return undefined;
+    if (el.type === 'checkbox') return el.checked;
+    const val = el.value.trim();
+    return val === MASKED ? undefined : val;
   };
+
+  const payload = {
+    api_key: getVal('api_key'),
+    auth_mode: getVal('auth_mode'),
+    timezone: getVal('timezone'),
+    locale: getVal('locale'),
+    font_family: getVal('font_family'),
+    transcription_provider: getVal('transcription_provider'),
+    transcription_api_key: getVal('transcription_api_key'),
+    transcription_api_url: getVal('transcription_api_url'),
+    transcription_api_model: getVal('transcription_api_model'),
+    whisper_model_size: getVal('whisper_model_size'),
+    whisper_device: getVal('whisper_device'),
+    whisper_cache_dir: getVal('whisper_cache_dir'),
+    whisper_compute_type: getVal('whisper_compute_type'),
+    sentiment_provider: getVal('sentiment_provider'),
+    sentiment_api_key: getVal('sentiment_api_key'),
+    sentiment_api_url: getVal('sentiment_api_url'),
+    sentiment_api_model: getVal('sentiment_api_model'),
+    sentiment_model: getVal('sentiment_model'),
+    sentiment_mapping: mappingParsed,
+    hf_cache_dir: getVal('hf_cache_dir'),
+    transcription_enabled: getVal('transcription_enabled'),
+    sentiment_enabled: getVal('sentiment_enabled'),
+    retention_years: parseInt(getVal('retention_years')) || 7,
+    output_dir: getVal('output_dir'),
+    audio_format: getVal('audio_format'),
+    encryption_enabled: getVal('encryption_enabled'),
+    encryption_password: getVal('encryption_password'),
+  };
+
+  // Strip undefined fields so masked secrets aren't overwritten
+  Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
   try {
     const res = await apiFetch(`${API_BASE}/admin/settings`, {
@@ -714,6 +765,11 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function escapeAttr(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 // ============ LIVE CONSOLE ============
 let logsInterval = null;
 
@@ -739,7 +795,7 @@ async function fetchLiveSessions() {
     
     tbody.innerHTML = sessions.map(s => {
       return `<tr>
-        <td title="${s.start_time}">${formatDateTime(s.start_time)}</td>
+        <td title="${escapeAttr(s.start_time)}">${formatDateTime(s.start_time)}</td>
         <td>${escapeHtml(s.session_id)}</td>
         <td>${escapeHtml(s.caller || '-')}</td>
         <td>${escapeHtml(s.callee || '-')}</td>
