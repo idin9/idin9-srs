@@ -136,6 +136,7 @@ async def lifespan(app: FastAPI):
         rtp_port_allocator=sm.allocate_rtp_port_sync,
         on_new_session_callback=sm.create_session,
         on_end_session_callback=sm.stop_session,
+        on_release_port_callback=sm.release_rtp_port_sync,
         loop=loop,
     )
     await idin9_srs_server.start()
@@ -160,7 +161,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="idin9-srs",
         description="SIPREC recording server with sentiment analysis and transcription",
-        version="26.06.12",
+        version="26.06.13",
         lifespan=lifespan,
     )
 
@@ -181,7 +182,7 @@ def create_app() -> FastAPI:
             return HTMLResponse(index_path.read_text())
         return {
             "service": "idin9-srs",
-            "version": "26.06.12",
+            "version": "26.06.13",
             "docs": "/docs",
         }
 

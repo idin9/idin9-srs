@@ -75,6 +75,11 @@ class SessionManager:
                 self._next_rtp_port = self.rtp_min_port
             return port
 
+    def release_rtp_port_sync(self, port: int):
+        """Release a previously allocated RTP port back to the pool."""
+        with self._rtp_port_lock:
+            self._used_rtp_ports.discard(port)
+
     async def create_session(
         self,
         session_id: str,
@@ -102,6 +107,8 @@ class SessionManager:
             xml_metadata=raw_xml if raw_xml else (json.dumps(xml_metadata) if xml_metadata else None),
         )
         self._sessions[session_id] = info
+        # Record creation time so stale checker can catch sessions that never receive audio
+        self._last_audio_time[session_id] = time.monotonic()
 
         created_any = False
         for i, stream in enumerate(streams):

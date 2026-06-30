@@ -177,12 +177,14 @@ class Idin9SrsServer:
         on_new_session_callback,
         loop: asyncio.AbstractEventLoop,
         on_end_session_callback=None,
+        on_release_port_callback=None,
     ):
         self.host = host
         self.port = port
         self.rtp_port_allocator = rtp_port_allocator
         self.on_new_session = on_new_session_callback
         self.on_end_session = on_end_session_callback
+        self.on_release_port = on_release_port_callback or (lambda p: None)
         self.loop = loop
         self.transport: Optional[asyncio.DatagramTransport] = None
         self.server_ip = self._resolve_server_ip(host)
@@ -277,6 +279,9 @@ class Idin9SrsServer:
             rtp_port = self.rtp_port_allocator()
             if not rtp_port:
                 logger.error("No available RTP ports for stream in session %s", call_id)
+                # Release any ports already allocated for this failed INVITE
+                for p in allocated_ports:
+                    self.on_release_port(p)
                 return
             allocated_ports.append(rtp_port)
             stream['allocated_port'] = rtp_port
