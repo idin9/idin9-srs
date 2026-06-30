@@ -14,7 +14,7 @@ Detailed setup instructions, architecture diagram, configuration variables, API 
 
 ---
 
-**Version:** 26.06.15  |
+**Version:** 26.06.16  |
 **Author:** Kanit Klai-Udom  |
 **Contact:** [www.idin9.com](https://www.idin9.com)  
 **License:** MIT

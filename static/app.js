@@ -352,6 +352,10 @@ function renderResults(recordings) {
       ? `<span class="badge bg-secondary" title="${escapeAttr(r.xml_metadata.substring(0, 200))}"><i class="bi bi-file-code"></i></span>`
       : '<span class="text-muted">-</span>';
 
+    const transcriptCell = hasTranscript 
+      ? `<button class="btn btn-outline-secondary btn-sm" onclick="showTranscript('${encodeURIComponent(r.session_id)}')"><i class="bi bi-file-text"></i> View</button>`
+      : '<span class="text-muted">-</span>';
+
     return `<tr>
       <td title="${escapeAttr(r.end_time)}">${dt}</td>
       <td>${escapeHtml(r.caller || '-')}</td>
@@ -362,6 +366,7 @@ function renderResults(recordings) {
         <span class="sentiment-badge" style="${sentStyle}" title="Sentiment: ${escapeAttr(label)} (${score.toFixed(1)})">${escapeHtml(label)} ${score.toFixed(1)}</span>
         ${badWordPct > 0 ? `<span class="badword-badge" title="Bad words: ${badWordPct}% of transcript"><i class="bi bi-emoji-frown"></i>${badWordPct.toFixed(1)}%</span>` : ''}
       </td>
+      <td>${transcriptCell}</td>
       <td class="actions-cell">
         <button class="btn btn-primary btn-sm" data-sid="${encodeURIComponent(r.session_id)}" onclick="playAudio(this.dataset.sid)">Play</button>
         <a href="${API_BASE}/recordings/${encodeURIComponent(r.session_id)}/audio" class="btn btn-secondary btn-sm" download>Export</a>
@@ -646,6 +651,11 @@ async function saveSettings(event) {
 
     statusEl.textContent = 'Configuration saved successfully. Some changes may require a server restart.';
     statusEl.style.color = '#28a745';
+
+    // Update display timezone immediately without requiring reload
+    if (payload.timezone) {
+      displayTimezone = payload.timezone;
+    }
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
     statusEl.style.color = '#dc3545';
@@ -873,7 +883,9 @@ function sentimentColor(label, score) {
 function formatDateTime(isoStr) {
   if (!isoStr) return '-';
   try {
-    const d = new Date(isoStr);
+    // Ensure UTC format to prevent browser from shifting via local time assumption
+    const parsedStr = isoStr.endsWith('Z') ? isoStr : isoStr + 'Z';
+    const d = new Date(parsedStr);
     return d.toLocaleString('en-US', {
       timeZone: displayTimezone,
       year: 'numeric', month: 'short', day: 'numeric',

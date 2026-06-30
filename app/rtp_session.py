@@ -126,4 +126,5 @@ class RtpProtocol(asyncio.DatagramProtocol):
         self.session.handle_rtp_packet(data)
 
     def connection_lost(self, exc: Optional[Exception]) -> None:
-        logger.warning("RTP transport lost for session %s: %s", self.session.session_id, exc)
+        if exc is not None:
+            logger.warning("RTP transport lost for session %s: %s", self.session.session_id, exc)
