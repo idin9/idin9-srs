@@ -9,6 +9,9 @@ let currentUserRole = null;
 let currentOffset = 0;
 const LIMIT = 50;
 
+// ── Timezone (loaded from server config) ────
+let displayTimezone = 'UTC';
+
 // ── Session Idle Timeout ────────────────────
 const SESSION_TIMEOUT_MS = 300000;
 let sessionTimer = null;
@@ -88,7 +91,11 @@ async function apiFetch(url, options = {}) {
       if (info.font_family && info.font_family !== 'system') {
         document.body.style.fontFamily = info.font_family;
       }
-      
+
+      if (info.timezone) {
+        displayTimezone = info.timezone;
+      }
+
       if (info.auth_required !== undefined) {
         authRequired = info.auth_required;
       }
@@ -540,6 +547,12 @@ function populateAdminForm(config) {
   toggleLocalConfig('transcription_provider', 'transcription-local-config');
   toggleLocalConfig('sentiment_provider', 'sentiment-local-config');
 
+  // Update timezone from config so date display reflects current setting
+  const tzEl = document.querySelector('[name="timezone"]');
+  if (tzEl && tzEl.value) {
+    displayTimezone = tzEl.value;
+  }
+
   // Trigger gray-out for disabled AI cards (Issue 5)
   toggleCardEnabled('transcription-card-body',
     document.querySelector('[name="transcription_enabled"]').checked);
@@ -862,6 +875,7 @@ function formatDateTime(isoStr) {
   try {
     const d = new Date(isoStr);
     return d.toLocaleString('en-US', {
+      timeZone: displayTimezone,
       year: 'numeric', month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit', second: '2-digit'
     });

@@ -43,6 +43,7 @@ class RecordingIndexer:
     def _migrate_db(self, conn):
         """Apply schema migrations for older databases."""
         migrations = [
+            "ALTER TABLE recordings ADD COLUMN bad_word_percentage REAL DEFAULT 0.0",
             "ALTER TABLE recordings ADD COLUMN recorded_by TEXT DEFAULT NULL",
             "ALTER TABLE recordings ADD COLUMN xml_metadata TEXT DEFAULT NULL",
         ]

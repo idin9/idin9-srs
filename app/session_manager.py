@@ -272,20 +272,23 @@ class SessionManager:
 
         # Store in indexer
         if final_path:
-            self.indexer.add_recording(
-                session_id=session_id,
-                caller=info.caller,
-                callee=info.callee,
-                start_time=info.start_time,
-                end_time=info.end_time,
-                wav_path=final_path,
-                duration=duration,
-                sentiment_score=info.sentiment_score,
-                sentiment_label=info.sentiment_label,
-                transcript=info.transcript,
-                bad_word_percentage=info.bad_word_percentage,
-                xml_metadata=info.xml_metadata,
-            )
+            try:
+                self.indexer.add_recording(
+                    session_id=session_id,
+                    caller=info.caller,
+                    callee=info.callee,
+                    start_time=info.start_time,
+                    end_time=info.end_time,
+                    wav_path=final_path,
+                    duration=duration,
+                    sentiment_score=info.sentiment_score,
+                    sentiment_label=info.sentiment_label,
+                    transcript=info.transcript,
+                    bad_word_percentage=info.bad_word_percentage,
+                    xml_metadata=info.xml_metadata,
+                )
+            except Exception as e:
+                logger.error("Failed to store recording in indexer for session %s: %s", session_id, e)
 
         self._last_audio_time.pop(session_id, None)
         self._sessions.pop(session_id, None)

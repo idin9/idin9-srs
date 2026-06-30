@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**Version:** 26.06.14  |
+**Version:** 26.06.15  |
 **Author:** Kanit Klai-Udom  |
 **Contact:** [www.idin9.com](https://www.idin9.com)  
 **License:** MIT
