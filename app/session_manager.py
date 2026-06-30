@@ -98,6 +98,18 @@ class SessionManager:
           - allocated_port: int (the local port to listen on)
           - codecs: dict (optional)
         """
+        # If a session with this ID already exists (e.g. INVITE retransmit slipped through),
+        # clean up old RTP sessions and release their ports first
+        if session_id in self._sessions:
+            logger.warning("Session %s already exists — cleaning up old RTP sessions before re-creating", session_id)
+            old_keys = [k for k in self._rtp_sessions if k[0] == session_id]
+            for key in old_keys:
+                old_rtp = self._rtp_sessions.pop(key, None)
+                if old_rtp:
+                    old_rtp.stop()
+                    with self._rtp_port_lock:
+                        self._used_rtp_ports.discard(old_rtp.local_port)
+
         info = SessionInfo(
             session_id=session_id,
             caller=caller,

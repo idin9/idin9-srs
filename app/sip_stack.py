@@ -188,6 +188,8 @@ class Idin9SrsServer:
         self.loop = loop
         self.transport: Optional[asyncio.DatagramTransport] = None
         self.server_ip = self._resolve_server_ip(host)
+        # Cache of 200 OK responses per Call-ID to handle INVITE retransmissions
+        self._invite_responses: dict[str, bytes] = {}
 
     @staticmethod
     def _resolve_server_ip(host: str) -> str:
@@ -240,6 +242,13 @@ class Idin9SrsServer:
     async def _handle_invite(self, msg: dict, addr: tuple):
         call_id = msg["headers"].get("Call-ID", str(uuid.uuid4()))
         content_type = msg["headers"].get("Content-Type", "")
+
+        # Handle INVITE retransmissions: resend cached 200 OK without allocating new ports
+        if call_id in self._invite_responses:
+            cached_response = self._invite_responses[call_id]
+            self.transport.sendto(cached_response, addr)
+            logger.info("Retransmitted cached 200 OK for call %s (INVITE retransmission)", call_id)
+            return
 
         sdp_body = msg.get("body", "")
         xml_metadata = {}
@@ -298,6 +307,8 @@ class Idin9SrsServer:
             self.server_ip,
         )
         self.transport.sendto(response_200, addr)
+        # Cache the response for INVITE retransmissions
+        self._invite_responses[call_id] = response_200
         logger.info("── SIP TX to %s:%s ──\n%s", addr[0], addr[1], response_200.decode("utf-8", errors="replace"))
         logger.info(
             "Sent 200 OK for call %s, %d stream(s) on ports %s",
@@ -324,6 +335,8 @@ class Idin9SrsServer:
 
     async def _handle_bye(self, msg: dict, addr: tuple):
         call_id = msg["headers"].get("Call-ID", "")
+        # Clean up cached INVITE response
+        self._invite_responses.pop(call_id, None)
         try:
             response = build_response(
                 200, "OK", msg,
