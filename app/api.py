@@ -285,6 +285,7 @@ def create_router():
             "timezone": cfg.timezone,
             "locale": cfg.locale,
             "font_family": cfg.font_family,
+            "datetime_format": cfg.datetime_format,
             "output_dir": cfg.output_dir,
             "transcription_provider": cfg.transcription_provider,
             "transcription_api_key": _mask(cfg.transcription_api_key),
@@ -332,6 +333,7 @@ def create_router():
             "timezone",
             "locale",
             "font_family",
+            "datetime_format",
             "transcription_provider",
             "transcription_api_key",
             "transcription_api_url",
@@ -713,11 +715,12 @@ def create_router():
 
         return {
             "service": "idin9-srs",
-            "version": "26.06.16",
+            "version": "26.06.17",
             "auth_mode": settings.auth_mode,
             "auth_required": auth_required,
             "timezone": settings.timezone,
             "font_family": settings.font_family,
+            "datetime_format": settings.datetime_format,
         }
 
     return router

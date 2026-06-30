@@ -11,6 +11,7 @@ const LIMIT = 50;
 
 // ── Timezone (loaded from server config) ────
 let displayTimezone = 'UTC';
+let displayDateTimeFormat = 'system';
 
 // ── Session Idle Timeout ────────────────────
 const SESSION_TIMEOUT_MS = 300000;
@@ -94,6 +95,10 @@ async function apiFetch(url, options = {}) {
 
       if (info.timezone) {
         displayTimezone = info.timezone;
+      }
+      
+      if (info.datetime_format) {
+        displayDateTimeFormat = info.datetime_format;
       }
 
       if (info.auth_required !== undefined) {
@@ -514,7 +519,7 @@ function populateAdminForm(config) {
     'sip_listen_host', 'sip_listen_port',
     'rtp_min_port', 'rtp_max_port',
     'session_timeout_seconds',
-    'api_key', 'auth_mode', 'jwt_secret', 'timezone', 'locale', 'font_family',
+    'api_key', 'auth_mode', 'jwt_secret', 'timezone', 'locale', 'font_family', 'datetime_format',
     'transcription_provider', 'transcription_api_key', 'transcription_api_url', 'transcription_api_model',
     'whisper_device', 'whisper_cache_dir', 'whisper_compute_type', 'whisper_language',
     'sentiment_provider', 'sentiment_api_key', 'sentiment_api_url', 'sentiment_api_model',
@@ -552,10 +557,14 @@ function populateAdminForm(config) {
   toggleLocalConfig('transcription_provider', 'transcription-local-config');
   toggleLocalConfig('sentiment_provider', 'sentiment-local-config');
 
-  // Update timezone from config so date display reflects current setting
+  // Update timezone and format from config so date display reflects current setting
   const tzEl = document.querySelector('[name="timezone"]');
   if (tzEl && tzEl.value) {
     displayTimezone = tzEl.value;
+  }
+  const formatEl = document.querySelector('[name="datetime_format"]');
+  if (formatEl && formatEl.value) {
+    displayDateTimeFormat = formatEl.value;
   }
 
   // Trigger gray-out for disabled AI cards (Issue 5)
@@ -608,6 +617,7 @@ async function saveSettings(event) {
     timezone: getVal('timezone'),
     locale: getVal('locale'),
     font_family: getVal('font_family'),
+    datetime_format: getVal('datetime_format'),
     transcription_provider: getVal('transcription_provider'),
     transcription_api_key: getVal('transcription_api_key'),
     transcription_api_url: getVal('transcription_api_url'),
@@ -652,9 +662,12 @@ async function saveSettings(event) {
     statusEl.textContent = 'Configuration saved successfully. Some changes may require a server restart.';
     statusEl.style.color = '#28a745';
 
-    // Update display timezone immediately without requiring reload
+    // Update display timezone and format immediately without requiring reload
     if (payload.timezone) {
       displayTimezone = payload.timezone;
+    }
+    if (payload.datetime_format) {
+      displayDateTimeFormat = payload.datetime_format;
     }
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
@@ -886,6 +899,35 @@ function formatDateTime(isoStr) {
     // Ensure UTC format to prevent browser from shifting via local time assumption
     const parsedStr = isoStr.endsWith('Z') ? isoStr : isoStr + 'Z';
     const d = new Date(parsedStr);
+    
+    if (displayDateTimeFormat !== 'system') {
+      // Create formatter in the requested timezone to extract parts
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: displayTimezone,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(d);
+      const m = {};
+      parts.forEach(({ type, value }) => { m[type] = value; });
+      
+      const YYYY = m.year;
+      const MM = m.month;
+      const DD = m.day;
+      const HH = m.hour === '24' ? '00' : m.hour;
+      const mm = m.minute;
+      const ss = m.second;
+      
+      if (displayDateTimeFormat === 'YYYY-MM-DD HH:mm:ss') {
+        return `${YYYY}-${MM}-${DD} ${HH}:${mm}:${ss}`;
+      } else if (displayDateTimeFormat === 'DD/MM/YYYY HH:mm:ss') {
+        return `${DD}/${MM}/${YYYY} ${HH}:${mm}:${ss}`;
+      } else if (displayDateTimeFormat === 'MM/DD/YYYY HH:mm:ss') {
+        return `${MM}/${DD}/${YYYY} ${HH}:${mm}:${ss}`;
+      }
+    }
+    
     return d.toLocaleString('en-US', {
       timeZone: displayTimezone,
       year: 'numeric', month: 'short', day: 'numeric',

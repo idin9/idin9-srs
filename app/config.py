@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     timezone: str = "UTC"
     locale: str = "en_US"
     font_family: str = "system"
+    datetime_format: str = "system"
 
     # ── Retention ───────────────────────────────────────
     retention_years: int = 7
