@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     sentiment_api_model: str = ""
 
     # ── Whisper (Local) ─────────────────────────────────
-    whisper_model_size: str = "base"
+    whisper_model_size: str = "CodeHardThailand/whisper-th-medium-combined-ct2"
     whisper_device: str = "auto"
     whisper_compute_type: str = "auto"
     whisper_cache_dir: str = ""
