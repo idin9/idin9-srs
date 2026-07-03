@@ -450,10 +450,17 @@ def create_router():
         "/maintenance/batch-generate",
         summary="Batch generate transcript and sentiment for recordings missing them",
     )
-    async def batch_generate(request: Request, user: dict = Depends(verify_admin)):
+    async def batch_generate(
+        request: Request,
+        user: dict = Depends(verify_admin),
+        dry_run: bool = Query(False, description="If true, only returns count of records to be processed without doing it"),
+        start_time_from: Optional[str] = Query(None, description="Filter recordings ending after this time (ISO format)"),
+        start_time_to: Optional[str] = Query(None, description="Filter recordings ending before this time (ISO format)"),
+        query: Optional[str] = Query(None, description="Combined search across caller, callee, and XML metadata"),
+        limit: int = Query(10000, ge=1, le=10000, description="Max records to search/process"),
+    ):
         """
-        Find recordings without transcript or sentiment and process them.
-        Returns a job_id that can be used to check progress.
+        Find recordings matching optional filters without transcript or sentiment and process them sequentially.
         """
         import uuid
         from .config import settings as cfg
@@ -461,8 +468,15 @@ def create_router():
         indexer = request.app.state.indexer
         sm = request.app.state.session_manager
 
-        # Find recordings missing transcript or sentiment
-        all_records = indexer.list_recordings(limit=10000, offset=0)
+        # Find recordings missing transcript or sentiment based on filters
+        all_records = indexer.list_recordings(
+            limit=limit,
+            offset=0,
+            start_time_from=start_time_from,
+            start_time_to=start_time_to,
+            query=query
+        )
+        
         to_process = []
         for r in all_records:
             transcript = r.get("transcript", "")
@@ -470,6 +484,14 @@ def create_router():
             # Skip if has valid transcript and sentiment was explicitly computed
             if not transcript or transcript == "[transcription disabled]" or sentiment_score == 1.0:
                 to_process.append(r)
+
+        if dry_run:
+            return {
+                "status": "dry_run",
+                "total_matched": len(all_records),
+                "to_process": len(to_process),
+                "message": f"Found {len(to_process)} recordings missing data out of {len(all_records)} matching filters.",
+            }
 
         if not to_process:
             return {
@@ -715,7 +737,7 @@ def create_router():
 
         return {
             "service": "idin9-srs",
-            "version": "26.07.02",
+            "version": "26.07.03",
             "auth_mode": settings.auth_mode,
             "auth_required": auth_required,
             "timezone": settings.timezone,

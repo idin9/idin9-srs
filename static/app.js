@@ -1069,21 +1069,38 @@ function toggleLogRefresh() {
 }
 
 // ============ BATCH GENERATE ============
-async function batchGenerate() {
+async function batchGenerate(dryRun = false) {
   const statusEl = document.getElementById('batch-status');
   const progressEl = document.getElementById('batch-progress');
   const progressBar = document.getElementById('batch-progress-bar');
   const progressText = document.getElementById('batch-progress-text');
   
-  statusEl.textContent = 'Starting batch generation...';
+  statusEl.textContent = dryRun ? 'Estimating...' : 'Starting batch generation...';
   statusEl.style.color = '#666';
-  progressEl.style.display = 'block';
-  progressBar.style.width = '0%';
-  progressBar.textContent = '0%';
-  progressText.textContent = 'Analyzing recordings...';
+  
+  if (!dryRun) {
+    progressEl.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressBar.textContent = '0%';
+    progressText.textContent = 'Analyzing recordings...';
+  } else {
+    progressEl.style.display = 'none';
+  }
+
+  const startVal = document.getElementById('batch-start')?.value;
+  const endVal = document.getElementById('batch-end')?.value;
+  const queryVal = document.getElementById('batch-query')?.value?.trim();
+  const limitVal = parseInt(document.getElementById('batch-limit')?.value) || 10000;
+
+  const params = new URLSearchParams();
+  if (dryRun) params.set('dry_run', 'true');
+  if (startVal) params.set('start_time_from', new Date(startVal).toISOString());
+  if (endVal) params.set('start_time_to', new Date(endVal).toISOString());
+  if (queryVal) params.set('query', queryVal);
+  params.set('limit', String(limitVal));
   
   try {
-    const res = await apiFetch(`${API_BASE}/maintenance/batch-generate`, {
+    const res = await apiFetch(`${API_BASE}/maintenance/batch-generate?${params}`, {
       method: 'POST',
     });
     
@@ -1094,14 +1111,19 @@ async function batchGenerate() {
     
     const data = await res.json();
     
-    progressBar.style.width = '100%';
-    progressBar.textContent = '100%';
-    progressText.textContent = data.message;
-    statusEl.textContent = 'Complete!';
-    statusEl.style.color = '#28a745';
+    if (dryRun) {
+      statusEl.textContent = data.message;
+      statusEl.style.color = '#0dcaf0';
+    } else {
+      progressBar.style.width = '100%';
+      progressBar.textContent = '100%';
+      progressText.textContent = data.message;
+      statusEl.textContent = 'Complete!';
+      statusEl.style.color = '#28a745';
+    }
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
     statusEl.style.color = '#dc3545';
-    progressText.textContent = 'Generation failed.';
+    if (!dryRun) progressText.textContent = 'Generation failed.';
   }
 }
