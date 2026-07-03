@@ -33,6 +33,7 @@ class RecordingIndexer:
             ''')
             # Create indexes for common queries
             conn.execute('CREATE INDEX IF NOT EXISTS idx_session_id ON recordings(session_id)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_start_time ON recordings(start_time)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_end_time ON recordings(end_time)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_caller ON recordings(caller)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_callee ON recordings(callee)')
@@ -117,10 +118,10 @@ class RecordingIndexer:
         params = []
 
         if start_time_from:
-            query_str += ' AND end_time >= ?'
+            query_str += ' AND start_time >= ?'
             params.append(start_time_from)
         if start_time_to:
-            query_str += ' AND end_time <= ?'
+            query_str += ' AND start_time <= ?'
             params.append(start_time_to)
         if caller:
             query_str += ' AND caller = ?'
@@ -139,7 +140,7 @@ class RecordingIndexer:
             query_str += ' AND sentiment_score <= ?'
             params.append(max_sentiment)
 
-        query_str += ' ORDER BY end_time DESC LIMIT ? OFFSET ?'
+        query_str += ' ORDER BY start_time DESC LIMIT ? OFFSET ?'
         params.extend([limit, offset])
 
         with sqlite3.connect(self.db_path) as conn:
@@ -161,10 +162,10 @@ class RecordingIndexer:
         params = []
 
         if start_time_from:
-            query_str += ' AND end_time >= ?'
+            query_str += ' AND start_time >= ?'
             params.append(start_time_from)
         if start_time_to:
-            query_str += ' AND end_time <= ?'
+            query_str += ' AND start_time <= ?'
             params.append(start_time_to)
         if caller:
             query_str += ' AND caller = ?'

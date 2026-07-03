@@ -342,7 +342,7 @@ function renderResults(recordings) {
     const label = (r.sentiment_label || 'neutral').toLowerCase();
     const sentStyle = sentimentColor(label, score);
     const badWordPct = r.bad_word_percentage || 0.0;
-    const dt = formatDateTime(r.end_time);
+    const dt = formatDateTime(r.start_time);
     const dur = formatDuration(r.duration);
 
     const hasTranscript = r.transcript && r.transcript.length > 0 && r.transcript !== '[transcription disabled]' && r.transcript !== '[transcription failed]';
@@ -362,7 +362,7 @@ function renderResults(recordings) {
       : '<span class="text-muted">-</span>';
 
     return `<tr>
-      <td title="${escapeAttr(r.end_time)}">${dt}</td>
+      <td title="${escapeAttr(r.start_time)}">${dt}</td>
       <td>${escapeHtml(r.caller || '-')}</td>
       <td>${escapeHtml(r.callee || '-')}</td>
       <td>${xmlCell}</td>
