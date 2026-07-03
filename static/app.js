@@ -374,7 +374,7 @@ function renderResults(recordings) {
       <td>${transcriptCell}</td>
       <td class="actions-cell">
         <button class="btn btn-primary btn-sm" data-sid="${encodeURIComponent(r.session_id)}" onclick="playAudio(this.dataset.sid)">Play</button>
-        <a href="${API_BASE}/recordings/${encodeURIComponent(r.session_id)}/audio" class="btn btn-secondary btn-sm" download>Export</a>
+        <button class="btn btn-secondary btn-sm" data-sid="${encodeURIComponent(r.session_id)}" onclick="exportAudio(this.dataset.sid)">Export</button>
         ${genBtn}
       </td>
     </tr>`;
@@ -439,24 +439,29 @@ async function playAudio(sessionId) {
   const audioUrl = `${API_BASE}/recordings/${sessionId}/audio`;
 
   // Fetch with auth headers for the audio player
-  const apiKey = getApiKey();
-  if (apiKey) {
-    player.src = audioUrl;
-    // Set auth header via fetch + blob for audio
+  const hasAuth = getApiKey() || getAuthHeader();
+  if (hasAuth) {
     try {
       const res = await apiFetch(audioUrl);
       if (res.ok) {
         const blob = await res.blob();
         player.src = URL.createObjectURL(blob);
+      } else {
+        info.innerHTML += `<br><span class="text-danger">Failed to load audio (HTTP ${res.status})</span>`;
       }
-    } catch {}
+    } catch (e) {
+      info.innerHTML += `<br><span class="text-danger">Error loading audio: ${e.message}</span>`;
+    }
   } else {
     player.src = audioUrl;
   }
   player.load();
 
-  downloadLink.href = audioUrl;
-  downloadLink.download = `${sessionId}.wav`;
+  downloadLink.href = "#";
+  downloadLink.onclick = (e) => {
+    e.preventDefault();
+    exportAudio(sessionId);
+  };
 
   // Fetch session details
   try {
@@ -810,6 +815,34 @@ async function deleteUser(username) {
     loadUsers();
   } catch (err) {
     alert(err.message);
+  }
+}
+
+async function exportAudio(sessionId) {
+  try {
+    const res = await apiFetch(`${API_BASE}/recordings/${sessionId}/audio`);
+    if (!res || !res.ok) throw new Error(`HTTP ${res?.status || 'Unknown'}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // Attempt to parse content-disposition for filename if available, else default
+    const disposition = res.headers.get('content-disposition');
+    let filename = `${sessionId}.wav`;
+    if (disposition && disposition.indexOf('filename=') !== -1) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+      const matches = filenameRegex.exec(disposition);
+      if (matches != null && matches[1]) { 
+        filename = matches[1].replace(/['"]/g, '');
+      }
+    }
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert(`Export failed: ${err.message}`);
   }
 }
 

@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import os
 from collections import deque
 from pathlib import Path
 
@@ -42,6 +41,8 @@ logger = logging.getLogger(__name__)
 
 idin9_srs_server: Idin9SrsServer | None = None
 
+import os
+import time
 
 def load_config_overrides():
     """Load config.override.json and merge overrides into settings."""
@@ -59,6 +60,13 @@ def load_config_overrides():
     except (json.JSONDecodeError, OSError) as e:
         logger.warning("Failed to load config.override.json: %s", e)
 
+def apply_timezone():
+    if settings.timezone and settings.timezone != "system":
+        os.environ["TZ"] = settings.timezone
+        if hasattr(time, "tzset"):
+            time.tzset()
+        logger.info(f"Applied timezone: {settings.timezone}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -66,6 +74,7 @@ async def lifespan(app: FastAPI):
 
     # Load runtime config overrides
     load_config_overrides()
+    apply_timezone()
 
     # Auto-generate JWT secret if not configured (tokens invalidated on restart)
     if not settings.jwt_secret:
@@ -161,7 +170,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="idin9-srs",
         description="SIPREC recording server with sentiment analysis and transcription",
-        version="26.06.19",
+        version="26.06.20",
         lifespan=lifespan,
     )
 
@@ -182,7 +191,7 @@ def create_app() -> FastAPI:
             return HTMLResponse(index_path.read_text())
         return {
             "service": "idin9-srs",
-            "version": "26.06.19",
+            "version": "26.06.20",
             "docs": "/docs",
         }
 
