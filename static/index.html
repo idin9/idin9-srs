@@ -734,8 +734,15 @@
                 <h6 class="mt-3 text-indigo-400 border-b border-dark-border pb-2 font-semibold text-sm flex items-center gap-2"><i class="bi bi-cpu"></i> Local Sentiment Configuration</h6>
                 <div class="space-y-3 pt-2">
                   <div>
-                    <label class="form-label text-xs text-slate-400 mb-1">Local Model Name</label>
-                    <input type="text" name="sentiment_model" class="form-control" placeholder="phoner45/wangchan-sentiment-thai-text-model">
+                    <label class="form-label text-xs text-slate-400 mb-1">Local Sentiment Model</label>
+                    <select name="sentiment_model" class="form-select" onchange="checkCustomSentimentModel(this)">
+                      <option value="phoner45/wangchan-sentiment-thai-text-model" selected>WangchanBERTa Thai Sentiment (phoner45/wangchan-sentiment-thai-text-model - Recommended)</option>
+                      <option value="cardiffnlp/twitter-xlm-roberta-base-sentiment">Multilingual XLM-RoBERTa (cardiffnlp/twitter-xlm-roberta-base-sentiment)</option>
+                      <option value="j-hartmann/emotion-english-distilroberta-base">English DistilRoBERTa Emotion (j-hartmann/emotion-english-distilroberta-base)</option>
+                      <option value="bhadresh-ps/roberta-base-emotion">English RoBERTa Emotion (bhadresh-ps/roberta-base-emotion)</option>
+                      <option value="custom">Custom HuggingFace Model Repo Path...</option>
+                    </select>
+                    <input type="text" id="custom_sentiment_model" name="custom_sentiment_model" class="form-control mt-2" placeholder="e.g. owner/repo-name" style="display:none">
                   </div>
                   <div>
                     <label class="form-label text-xs text-slate-400 mb-1">Local Cache Directory</label>

@@ -497,6 +497,18 @@ document.addEventListener('click', function(e) {
 });
 
 // ============ ADMIN ============
+function checkCustomSentimentModel(selectEl) {
+  const customInput = document.getElementById('custom_sentiment_model');
+  if (customInput) {
+    if (selectEl.value === 'custom') {
+      customInput.style.display = 'block';
+      customInput.focus();
+    } else {
+      customInput.style.display = 'none';
+    }
+  }
+}
+
 async function loadAdminConfig() {
   const form = document.getElementById('admin-form');
   const loading = document.getElementById('admin-loading');
@@ -547,6 +559,22 @@ function populateAdminForm(config) {
 
   const modelEl = document.querySelector('[name="whisper_model_size"]');
   if (modelEl && config.whisper_model_size) modelEl.value = config.whisper_model_size;
+
+  const sentimentSelectEl = document.querySelector('[name="sentiment_model"]');
+  if (sentimentSelectEl && config.sentiment_model) {
+    const matchingOpt = Array.from(sentimentSelectEl.options).find(opt => opt.value === config.sentiment_model);
+    const customInput = document.getElementById('custom_sentiment_model');
+    if (matchingOpt) {
+      sentimentSelectEl.value = config.sentiment_model;
+      if (customInput) customInput.style.display = 'none';
+    } else {
+      sentimentSelectEl.value = 'custom';
+      if (customInput) {
+        customInput.style.display = 'block';
+        customInput.value = config.sentiment_model;
+      }
+    }
+  }
 
   const mappingEl = document.querySelector('[name="sentiment_mapping"]');
   if (mappingEl && config.sentiment_mapping) {
@@ -636,7 +664,7 @@ async function saveSettings(event) {
     sentiment_api_key: getVal('sentiment_api_key'),
     sentiment_api_url: getVal('sentiment_api_url'),
     sentiment_api_model: getVal('sentiment_api_model'),
-    sentiment_model: getVal('sentiment_model'),
+    sentiment_model: (getVal('sentiment_model') === 'custom') ? (document.getElementById('custom_sentiment_model') ? document.getElementById('custom_sentiment_model').value.trim() : '') : getVal('sentiment_model'),
     sentiment_mapping: mappingParsed,
     hf_cache_dir: getVal('hf_cache_dir'),
     transcription_enabled: getVal('transcription_enabled'),
