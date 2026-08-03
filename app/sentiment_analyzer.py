@@ -64,13 +64,17 @@ class SentimentAnalyzer:
         loop = asyncio.get_event_loop()
 
         def _load():
-            logger.info("Loading local sentiment model %s", self.model_name)
-            self._pipeline = pipeline(
-                "text-classification",
-                model=self.model_name,
-                top_k=None,
-            )
-            logger.info("Sentiment model loaded")
+            try:
+                logger.info("Loading local sentiment model %s", self.model_name)
+                self._pipeline = pipeline(
+                    "text-classification",
+                    model=self.model_name,
+                    trust_remote_code=True,
+                    top_k=None,
+                )
+                logger.info("Sentiment model loaded successfully")
+            except Exception as e:
+                logger.error("Failed to load local sentiment model %s: %s", self.model_name, e)
 
         await loop.run_in_executor(None, _load)
 

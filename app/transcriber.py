@@ -66,52 +66,63 @@ class Transcriber:
         if self._local_model is not None or self._hf_pipeline is not None:
             return
 
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
 
-        def _load():
-            logger.info(
-                "Loading local ASR model %s (device=%s, compute=%s, cache=%s)",
-                self.model_size,
-                self.device,
-                self.compute_type,
-                self.cache_dir or "default",
-            )
-            # Check if Qwen or HuggingFace ASR pipeline model
-            if "Qwen" in self.model_size or "Qwen3" in self.model_size:
-                from transformers import pipeline
-                device_arg = 0 if self.device == "cuda" else (-1 if self.device == "cpu" else "auto")
+            def _load():
+                logger.info(
+                    "Loading local ASR model %s (device=%s, compute=%s, cache=%s)",
+                    self.model_size,
+                    self.device,
+                    self.compute_type,
+                    self.cache_dir or "default",
+                )
+                whisper_sizes = {"tiny", "base", "small", "medium", "large-v1", "large-v2", "large-v3", "tiny.en", "base.en", "small.en", "medium.en"}
+                is_whisper_size = self.model_size.lower() in whisper_sizes or "ct2" in self.model_size.lower()
+                is_qwen = "qwen" in self.model_size.lower()
+
+                if not is_whisper_size and (is_qwen or "/" in self.model_size):
+                    try:
+                        from transformers import pipeline
+                        device_arg = 0 if self.device == "cuda" else (-1 if self.device == "cpu" else "auto")
+                        try:
+                            self._hf_pipeline = pipeline(
+                                "automatic-speech-recognition",
+                                model=self.model_size,
+                                trust_remote_code=True,
+                                device_map=device_arg if device_arg != "auto" else "auto"
+                            )
+                        except Exception:
+                            self._hf_pipeline = pipeline(
+                                "automatic-speech-recognition",
+                                model=self.model_size,
+                                trust_remote_code=True
+                            )
+                        self._model_type = "hf"
+                        logger.info("HuggingFace ASR pipeline (%s) loaded successfully", self.model_size)
+                        return
+                    except Exception as e:
+                        logger.warning("HuggingFace ASR pipeline load failed for %s: %s", self.model_size, e)
+
+                # Try faster-whisper
                 try:
-                    self._hf_pipeline = pipeline("automatic-speech-recognition", model=self.model_size, device_map=device_arg if device_arg != "auto" else "auto")
-                except Exception:
-                    self._hf_pipeline = pipeline("automatic-speech-recognition", model=self.model_size)
-                self._model_type = "hf"
-                logger.info("Qwen/HuggingFace ASR pipeline loaded successfully")
-                return
+                    from faster_whisper import WhisperModel
+                    kwargs = {
+                        "model_size_or_path": self.model_size,
+                        "device": self.device,
+                        "compute_type": self.compute_type,
+                    }
+                    if self.cache_dir:
+                        kwargs["download_root"] = self.cache_dir
+                    self._local_model = WhisperModel(**kwargs)
+                    self._model_type = "whisper"
+                    logger.info("Whisper CTranslate2 model (%s) loaded successfully", self.model_size)
+                except Exception as e:
+                    logger.error("Failed to load local ASR model %s: %s", self.model_size, e)
 
-            try:
-                from faster_whisper import WhisperModel
-                kwargs = {
-                    "model_size_or_path": self.model_size,
-                    "device": self.device,
-                    "compute_type": self.compute_type,
-                }
-                if self.cache_dir:
-                    kwargs["download_root"] = self.cache_dir
-                self._local_model = WhisperModel(**kwargs)
-                self._model_type = "whisper"
-                logger.info("Whisper CTranslate2 model loaded")
-            except Exception as e:
-                logger.warning("faster-whisper load failed (%s), falling back to transformers pipeline...", e)
-                from transformers import pipeline
-                device_arg = 0 if self.device == "cuda" else (-1 if self.device == "cpu" else "auto")
-                try:
-                    self._hf_pipeline = pipeline("automatic-speech-recognition", model=self.model_size, device_map=device_arg if device_arg != "auto" else "auto")
-                except Exception:
-                    self._hf_pipeline = pipeline("automatic-speech-recognition", model=self.model_size)
-                self._model_type = "hf"
-                logger.info("HuggingFace ASR pipeline loaded")
-
-        await loop.run_in_executor(None, _load)
+            await loop.run_in_executor(None, _load)
+        except Exception as e:
+            logger.error("Error loading transcriber model: %s", e)
 
     async def transcribe(self, audio_path: str, language: Optional[str] = None) -> str:
         if self.provider == "openai":

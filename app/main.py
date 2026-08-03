@@ -106,7 +106,7 @@ async def lifespan(app: FastAPI):
         compute_type=settings.whisper_compute_type,
         cache_dir=whisper_cache,
     )
-    await transcriber.load_model()
+    asyncio.create_task(transcriber.load_model())
 
     sentiment_analyzer = SentimentAnalyzer(
         provider=settings.sentiment_provider,
@@ -116,7 +116,7 @@ async def lifespan(app: FastAPI):
         model_name=settings.sentiment_model,
         sentiment_mapping=settings.get_sentiment_mapping(),
     )
-    await sentiment_analyzer.load_model()
+    asyncio.create_task(sentiment_analyzer.load_model())
 
     # Initialize indexer for long-term storage and search
     indexer_path = os.path.join(settings.output_dir, settings.index_db)
