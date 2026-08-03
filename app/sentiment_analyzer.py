@@ -13,7 +13,7 @@ class SentimentAnalyzer:
         api_key: str = "",
         api_url: str = "",
         api_model: str = "",
-        model_name: str = "cardiffnlp/twitter-xlm-roberta-base-sentiment",
+        model_name: str = "phoner45/wangchan-sentiment-thai-text-model",
         sentiment_mapping: Optional[Dict[str, float]] = None,
     ):
         self._provider = provider

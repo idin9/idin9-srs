@@ -63,10 +63,10 @@ class Settings(BaseSettings):
     whisper_language: str = ""
 
     # ── Sentiment (Local) ───────────────────────────────
-    #   English emotion: j-hartmann/emotion-english-distilroberta-base
-    #   Multilingual (Thai support): cardiffnlp/twitter-xlm-roberta-base-sentiment
-    sentiment_model: str = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
-    sentiment_mapping: str = '{"negative":8.0, "neutral":1.0, "positive":1.0}'
+    #   Thai WangchanBERTa sentiment: phoner45/wangchan-sentiment-thai-text-model (default)
+    #   Multilingual: cardiffnlp/twitter-xlm-roberta-base-sentiment
+    sentiment_model: str = "phoner45/wangchan-sentiment-thai-text-model"
+    sentiment_mapping: str = '{"neg":8.0, "negative":8.0, "neu":1.0, "neutral":1.0, "pos":1.0, "positive":1.0}'
     hf_cache_dir: str = ""
 
     # ── Feature Toggles ──────────────────────────────────
@@ -96,7 +96,7 @@ class Settings(BaseSettings):
         try:
             return json.loads(self.sentiment_mapping)
         except json.JSONDecodeError:
-            return {"anger":10, "disgust":8, "fear":7, "sadness":5, "surprise":4, "joy":1, "neutral":1}
+            return {"neg":8.0, "negative":8.0, "neu":1.0, "neutral":1.0, "pos":1.0, "positive":1.0}
 
     class Config:
         env_file = ".env"
