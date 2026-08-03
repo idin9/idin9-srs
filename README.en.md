@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**Version:** 26.07.03  |
+**Version:** 26.08.01  |
 **Author:** Kanit Klai-Udom  |
 **Contact:** [www.idin9.com](https://www.idin9.com)  
 **License:** MIT
@@ -24,7 +24,7 @@
 |---------|-------------|
 | **SIPREC SRS (RFC 7866)** | Compliant Session Recording Server — receives SIP INVITE with multipart MIME (SDP + XML metadata) |
 | **Dual RTP Streams** | Two independent RTP streams (caller left / callee right) → stereo audio |
-| **Codec Support** | G.711 μ-law (PCMU), G.711 A-law (PCMA), G.729, Opus |
+| **Codec Support** | **G.722 (Recommended Default)**, G.711 μ-law (PCMU), G.711 A-law (PCMA), G.729, Opus |
 | **Speech-to-Text** | Powered by faster-whisper (tiny → large-v3 models, 100+ languages) |
 | **Sentiment Analysis** | HuggingFace emotion recognition → configurable 1–10 anger score |
 | **XML Metadata** | Parses SIPREC XML for caller, callee, participant AORs, session ID |
@@ -241,7 +241,7 @@ Set `RETENTION_YEARS=0` in `.env` to keep all recordings indefinitely.
 
 1. Log into AudioCodes SBC Web Interface
 2. Configure SIP Recording to point to this server's IP on UDP port 5060
-3. Ensure codecs PCMU (G.711 μ-law) or PCMA (G.711 A-law) are enabled
+3. Ensure codec G.722 (recommended 16 kHz wideband for optimal Whisper STT accuracy), PCMU, or PCMA is enabled
 4. The SBC sends SIP INVITE → server responds with 200 OK + RTP port
 5. Audio flows automatically
 

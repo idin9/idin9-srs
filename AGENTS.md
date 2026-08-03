@@ -43,7 +43,7 @@ RTP UDP :10000+  →  RtpSession (rtp_session.py)  →  AudioProcessor
 ```
 
 - Audio output: WAV (stereo: caller L, callee R) or Opus (via ffmpeg, requires `ffmpeg` on PATH). Optional AES-256 Fernet encryption.
-- Codecs supported: PCMU, PCMA, G.729 (silence if `g729` package missing), Opus.
+- Codecs supported: G.722 (default recommended 16kHz wideband), PCMU, PCMA, G.729 (silence if `g729` package missing), Opus.
 - Index DB: `{output_dir}/index.db` (SQLite, auto-created).
 
 ## AI providers

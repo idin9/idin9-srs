@@ -170,7 +170,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="idin9-srs",
         description="SIPREC recording server with sentiment analysis and transcription",
-        version="26.07.03",
+        version="26.08.01",
         lifespan=lifespan,
     )
 

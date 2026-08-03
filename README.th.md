@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED)]()
 
-**เวอร์ชัน:** 26.07.03  |
+**เวอร์ชัน:** 26.08.01  |
 **ผู้พัฒนา:** Kanit Klai-Udom  |
 **ติดต่อ:** [www.idin9.com](https://www.idin9.com)  
 **ลิขสิทธิ์:** MIT
@@ -65,8 +65,8 @@ AudioCodes SBC
                               │ audio payload
                     ┌─────────▼─────────┐
                     │  Audio Processor  │
-                    │  (decode PCMU/    │
-                    │   PCMA/Opus)      │
+                    │  (decode G.722/   │
+                    │   PCMU/PCMA/Opus) │
                     └─────────┬─────────┘
                               │ WAV file
                     ┌─────────▼─────────┐
@@ -204,7 +204,7 @@ OUTPUT_DIR=recordings
    - Proxy Set: เลือกที่สร้างในขั้นตอน 2
 
 4. **ไปที่ Configuration > VoIP > Coders**
-   - ตรวจสอบว่าเปิดใช้ PCMU (G.711 μ-law), PCMA (G.711 A-law) อย่างน้อยหนึ่งตัว
+   - ตรวจสอบว่าเปิดใช้ G.722 (แนะนำเป็นตัวหลัก 16 kHz Wideband เพื่อความแม่นยำสูงสุดในการถอดความ Whisper STT), PCMU (G.711 μ-law), หรือ PCMA (G.711 A-law)
 
 5. **ไปที่ Configuration > VoIP > SIP Recording**
    - เปิดใช้งาน SIP Recording

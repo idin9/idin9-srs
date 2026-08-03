@@ -199,7 +199,8 @@ def build_sdp_with_streams(server_ip: str, rtp_ports: List[int]) -> str:
 
     for port in rtp_ports:
         lines.extend([
-            f"m=audio {port} RTP/AVP 0 8 18 111",
+            f"m=audio {port} RTP/AVP 9 0 8 18 111",
+            "a=rtpmap:9 G722/8000",
             "a=rtpmap:0 PCMU/8000",
             "a=rtpmap:8 PCMA/8000",
             "a=rtpmap:18 G729/8000",

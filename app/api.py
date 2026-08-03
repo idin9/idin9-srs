@@ -737,7 +737,7 @@ def create_router():
 
         return {
             "service": "idin9-srs",
-            "version": "26.07.03",
+            "version": "26.08.01",
             "auth_mode": settings.auth_mode,
             "auth_required": auth_required,
             "timezone": settings.timezone,

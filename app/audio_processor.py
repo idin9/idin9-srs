@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 PAYLOAD_TYPE_PCMU = 0
 PAYLOAD_TYPE_PCMA = 8
+PAYLOAD_TYPE_G722 = 9
 PAYLOAD_TYPE_G729 = 18
 PAYLOAD_TYPE_OPUS = 111
 
@@ -93,6 +94,29 @@ def decode_g729(data: bytes) -> np.ndarray:
         return np.zeros(estimated_frames * 80, dtype=np.int16)
 
 
+def decode_g722(data: bytes) -> np.ndarray:
+    """
+    Decode G.722 wideband audio (64 kbps sub-band ADPCM, 16 kHz sample rate).
+    G.722 yields 16000 Hz 16-bit PCM samples.
+    """
+    try:
+        import av
+        codec = av.Codec('g722', 'r')
+        ctx = av.CodecContext.create(codec)
+        packet = av.Packet(data)
+        frames = ctx.decode(packet)
+        pcm_chunks = []
+        for frame in frames:
+            array = frame.to_ndarray()
+            pcm_chunks.append(array.flatten().astype(np.int16))
+        if pcm_chunks:
+            return np.concatenate(pcm_chunks)
+        return np.array([], dtype=np.int16)
+    except Exception as e:
+        logger.error("G.722 decode error: %s", e)
+        return np.zeros(len(data) * 2, dtype=np.int16)
+
+
 def decode_opus(data: bytes) -> np.ndarray:
     try:
         import opuslib
@@ -107,6 +131,7 @@ def decode_opus(data: bytes) -> np.ndarray:
 PAYLOAD_DECODERS = {
     PAYLOAD_TYPE_PCMU: decode_pcmu,
     PAYLOAD_TYPE_PCMA: decode_pcma,
+    PAYLOAD_TYPE_G722: decode_g722,
     PAYLOAD_TYPE_G729: decode_g729,
     PAYLOAD_TYPE_OPUS: decode_opus,
 }
@@ -120,10 +145,11 @@ class AudioProcessor:
         # _buffers[session_id][stream_index] = list of sample arrays
         self._buffers: dict[str, dict[int, list[np.ndarray]]] = {}
         self._sample_counts: dict[str, dict[int, int]] = {}
+        self._session_sample_rates: dict[str, int] = {}
         os.makedirs(output_dir, exist_ok=True)
 
     def feed_audio(self, session_id: str, stream_index: int, payload: bytes, payload_type: int):
-        decoder = PAYLOAD_DECODERS.get(payload_type, PAYLOAD_DECODERS.get(PAYLOAD_TYPE_PCMU))
+        decoder = PAYLOAD_DECODERS.get(payload_type, PAYLOAD_DECODERS.get(PAYLOAD_TYPE_G722))
         try:
             samples = decoder(payload)
         except Exception as e:
@@ -131,6 +157,11 @@ class AudioProcessor:
             return
         if len(samples) == 0:
             return
+
+        if payload_type == PAYLOAD_TYPE_G722:
+            self._session_sample_rates[session_id] = 16000
+        elif session_id not in self._session_sample_rates:
+            self._session_sample_rates[session_id] = 8000
 
         if session_id not in self._buffers:
             self._buffers[session_id] = {}
@@ -147,7 +178,8 @@ class AudioProcessor:
         if not stream_counts:
             return 0.0
         max_count = max(stream_counts.values())
-        return max_count / SAMPLE_RATE
+        sample_rate = self._session_sample_rates.get(session_id, 16000)
+        return max_count / sample_rate
 
     def save_wav(self, session_id: str) -> Optional[str]:
         if not is_safe_session_id(session_id):
@@ -181,6 +213,7 @@ class AudioProcessor:
                     mode='constant',
                 )
 
+        sample_rate = self._session_sample_rates.get(session_id, 16000)
         filepath = os.path.join(self.output_dir, f"{session_id}.wav")
 
         if num_streams >= 2:
@@ -192,11 +225,11 @@ class AudioProcessor:
             with wave.open(filepath, "wb") as wf:
                 wf.setnchannels(2)
                 wf.setsampwidth(2)
-                wf.setframerate(SAMPLE_RATE)
+                wf.setframerate(sample_rate)
                 wf.writeframes(stereo.tobytes())
             logger.info(
-                "Saved stereo WAV for session %s (%d channels, %s samples each)",
-                session_id, num_streams, max_len,
+                "Saved stereo WAV for session %s (%d channels, %s samples each at %dHz)",
+                session_id, num_streams, max_len, sample_rate,
             )
         else:
             # Mono WAV (single stream)
@@ -204,11 +237,11 @@ class AudioProcessor:
             with wave.open(filepath, "wb") as wf:
                 wf.setnchannels(1)
                 wf.setsampwidth(2)
-                wf.setframerate(SAMPLE_RATE)
+                wf.setframerate(sample_rate)
                 wf.writeframes(samples.tobytes())
             logger.info(
-                "Saved mono WAV for session %s (%s samples)",
-                session_id, len(samples),
+                "Saved mono WAV for session %s (%s samples at %dHz)",
+                session_id, len(samples), sample_rate,
             )
 
         return filepath
@@ -295,6 +328,7 @@ class AudioProcessor:
     def clear(self, session_id: str):
         self._buffers.pop(session_id, None)
         self._sample_counts.pop(session_id, None)
+        self._session_sample_rates.pop(session_id, None)
 
 
 def convert_wav_to_opus(wav_path: str) -> Optional[str]:
