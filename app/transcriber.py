@@ -99,16 +99,6 @@ class Transcriber:
                 self.api_model,
             )
 
-        if self.provider == "ollama":
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None,
-                providers.transcribe_ollama,
-                audio_path,
-                self.api_url,
-                self.api_model,
-            )
-
         if self.provider == "gemini":
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(

@@ -625,10 +625,9 @@
                 <div>
                   <label class="form-label text-xs text-slate-400 mb-1">Provider Backend</label>
                   <select name="transcription_provider" class="form-select" onchange="toggleLocalConfig('transcription_provider', 'transcription-local-config')">
-                    <option value="local">local (Whisper locally)</option>
-                    <option value="openai">openai (OpenAI Whisper API)</option>
-                    <option value="ollama">ollama (Ollama local/remote API)</option>
-                    <option value="gemini">gemini (Google Gemini API)</option>
+                    <option value="local">local (Faster-Whisper / Local STT Model)</option>
+                    <option value="openai">openai (OpenAI Whisper / Remote STT Server)</option>
+                    <option value="gemini">gemini (Google Gemini Audio API)</option>
                   </select>
                 </div>
                 <div>
