@@ -29,6 +29,8 @@ class Transcriber:
         self.compute_type = compute_type
         self.cache_dir = cache_dir
         self._local_model = None
+        self._hf_pipeline = None
+        self._model_type = None  # "whisper" or "hf"
 
         if cache_dir:
             os.environ["WHISPER_CACHE_DIR"] = cache_dir
@@ -61,29 +63,53 @@ class Transcriber:
                 self.api_model or "default",
             )
             return
-        if self._local_model is not None:
+        if self._local_model is not None or self._hf_pipeline is not None:
             return
-        from faster_whisper import WhisperModel
 
         loop = asyncio.get_event_loop()
 
         def _load():
             logger.info(
-                "Loading Whisper model %s (device=%s, compute=%s, cache=%s)",
+                "Loading local ASR model %s (device=%s, compute=%s, cache=%s)",
                 self.model_size,
                 self.device,
                 self.compute_type,
                 self.cache_dir or "default",
             )
-            kwargs = {
-                "model_size_or_path": self.model_size,
-                "device": self.device,
-                "compute_type": self.compute_type,
-            }
-            if self.cache_dir:
-                kwargs["download_root"] = self.cache_dir
-            self._local_model = WhisperModel(**kwargs)
-            logger.info("Whisper model loaded")
+            # Check if Qwen or HuggingFace ASR pipeline model
+            if "Qwen" in self.model_size or "Qwen3" in self.model_size:
+                from transformers import pipeline
+                device_arg = 0 if self.device == "cuda" else (-1 if self.device == "cpu" else "auto")
+                try:
+                    self._hf_pipeline = pipeline("automatic-speech-recognition", model=self.model_size, device_map=device_arg if device_arg != "auto" else "auto")
+                except Exception:
+                    self._hf_pipeline = pipeline("automatic-speech-recognition", model=self.model_size)
+                self._model_type = "hf"
+                logger.info("Qwen/HuggingFace ASR pipeline loaded successfully")
+                return
+
+            try:
+                from faster_whisper import WhisperModel
+                kwargs = {
+                    "model_size_or_path": self.model_size,
+                    "device": self.device,
+                    "compute_type": self.compute_type,
+                }
+                if self.cache_dir:
+                    kwargs["download_root"] = self.cache_dir
+                self._local_model = WhisperModel(**kwargs)
+                self._model_type = "whisper"
+                logger.info("Whisper CTranslate2 model loaded")
+            except Exception as e:
+                logger.warning("faster-whisper load failed (%s), falling back to transformers pipeline...", e)
+                from transformers import pipeline
+                device_arg = 0 if self.device == "cuda" else (-1 if self.device == "cpu" else "auto")
+                try:
+                    self._hf_pipeline = pipeline("automatic-speech-recognition", model=self.model_size, device_map=device_arg if device_arg != "auto" else "auto")
+                except Exception:
+                    self._hf_pipeline = pipeline("automatic-speech-recognition", model=self.model_size)
+                self._model_type = "hf"
+                logger.info("HuggingFace ASR pipeline loaded")
 
         await loop.run_in_executor(None, _load)
 
@@ -111,12 +137,20 @@ class Transcriber:
             )
 
         # Local provider
-        if self._local_model is None:
+        if self._local_model is None and self._hf_pipeline is None:
             await self.load_model()
 
         loop = asyncio.get_event_loop()
 
         def _transcribe():
+            if self._model_type == "hf":
+                res = self._hf_pipeline(audio_path)
+                if isinstance(res, dict):
+                    return res.get("text", "")
+                elif isinstance(res, list) and res and isinstance(res[0], dict):
+                    return " ".join([r.get("text", "") for r in res])
+                return str(res)
+
             kwargs = {"beam_size": 1}
             if language:
                 kwargs["language"] = language
@@ -132,12 +166,30 @@ class Transcriber:
             text = await self.transcribe(audio_path, language)
             return [(0.0, 0.0, text)] if text else []
 
-        if self._local_model is None:
+        if self._local_model is None and self._hf_pipeline is None:
             await self.load_model()
 
         loop = asyncio.get_event_loop()
 
         def _segments():
+            if self._model_type == "hf":
+                try:
+                    res = self._hf_pipeline(audio_path, return_timestamps=True)
+                    chunks = res.get("chunks", []) if isinstance(res, dict) else []
+                    if chunks:
+                        out = []
+                        for c in chunks:
+                            ts = c.get("timestamp", (0.0, 0.0))
+                            s = ts[0] if ts[0] is not None else 0.0
+                            e = ts[1] if ts[1] is not None else 0.0
+                            out.append((s, e, c.get("text", "").strip()))
+                        return out
+                except Exception:
+                    pass
+                text = self._hf_pipeline(audio_path)
+                text_str = text.get("text", "") if isinstance(text, dict) else str(text)
+                return [(0.0, 0.0, text_str.strip())] if text_str.strip() else []
+
             kwargs = {"beam_size": 1}
             if language:
                 kwargs["language"] = language

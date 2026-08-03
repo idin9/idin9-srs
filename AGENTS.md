@@ -50,7 +50,7 @@ RTP UDP :10000+  →  RtpSession (rtp_session.py)  →  AudioProcessor
 
 | Feature | `local` | `openai` | `ollama` | `gemini` |
 |---|---|---|---|---|
-| Transcription | faster-whisper | Whisper API | Whisper via Ollama | Gemini API |
+| Transcription | Qwen3-ASR / faster-whisper | Whisper API | — | Gemini API |
 | Sentiment | HuggingFace transformer | GPT-4o-mini (default) | llama3.2 (default) | Gemini Flash |
 
 - Local Whisper downloads model on first run (size: `WHISPER_MODEL_SIZE`).

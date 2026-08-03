@@ -25,7 +25,7 @@
 | **SIPREC SRS (RFC 7866)** | Compliant Session Recording Server — receives SIP INVITE with multipart MIME (SDP + XML metadata) |
 | **Dual RTP Streams** | Two independent RTP streams (caller left / callee right) → stereo audio |
 | **Codec Support** | **G.722 (Recommended Default)**, G.711 μ-law (PCMU), G.711 A-law (PCMA), G.729, Opus |
-| **Speech-to-Text** | Powered by faster-whisper (tiny → large-v3 models, 100+ languages) |
+| **Speech-to-Text** | Powered by Qwen3-ASR (`Qwen/Qwen3-ASR-1.7B-hf`, default) and faster-whisper (tiny → large-v3 models, 100+ languages) |
 | **Sentiment Analysis** | HuggingFace emotion recognition → configurable 1–10 anger score |
 | **XML Metadata** | Parses SIPREC XML for caller, callee, participant AORs, session ID |
 | **SQLite Index** | All recordings indexed with timestamp, caller, callee, score, transcript — searchable |

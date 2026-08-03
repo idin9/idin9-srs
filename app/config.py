@@ -55,8 +55,8 @@ class Settings(BaseSettings):
     #   gemini: models/gemini-2.0-flash-001 (default)
     sentiment_api_model: str = ""
 
-    # ── Whisper (Local) ─────────────────────────────────
-    whisper_model_size: str = "CodeHardThailand/whisper-th-medium-combined-ct2"
+    # ── Local ASR Model ──────────────────────────────────
+    whisper_model_size: str = "Qwen/Qwen3-ASR-1.7B-hf"
     whisper_device: str = "auto"
     whisper_compute_type: str = "auto"
     whisper_cache_dir: str = ""
