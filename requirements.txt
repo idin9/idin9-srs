@@ -10,3 +10,5 @@ opuslib>=3.0.0
 cryptography>=41.0.0
 PyJWT>=2.8.0
 av>=10.0.0
+sentencepiece>=0.2.0
+tiktoken>=0.7.0
