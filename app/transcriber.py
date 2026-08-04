@@ -87,15 +87,38 @@ class Transcriber:
                 if is_qwen:
                     try:
                         import torch
-                        from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
+                        from transformers import AutoProcessor
                         logger.info("Loading Qwen3-ASR model and processor: %s", self.model_size)
                         self._qwen_processor = AutoProcessor.from_pretrained(self.model_size, trust_remote_code=True)
-                        self._qwen_model = AutoModelForSpeechSeq2Seq.from_pretrained(
-                            self.model_size,
-                            trust_remote_code=True,
-                            dtype=torch.float32,
-                            low_cpu_mem_usage=True,
-                        )
+                        
+                        try:
+                            from transformers import AutoModelForSpeechSeq2Seq
+                            self._qwen_model = AutoModelForSpeechSeq2Seq.from_pretrained(
+                                self.model_size,
+                                trust_remote_code=True,
+                                dtype=torch.float32,
+                                low_cpu_mem_usage=True,
+                            )
+                        except Exception as ex1:
+                            logger.info("AutoModelForSpeechSeq2Seq fallback (%s), attempting direct Qwen3ASR import...", ex1)
+                            try:
+                                from transformers.models.qwen3_asr.modeling_qwen3_asr import Qwen3ASRForConditionalGeneration
+                                self._qwen_model = Qwen3ASRForConditionalGeneration.from_pretrained(
+                                    self.model_size,
+                                    trust_remote_code=True,
+                                    dtype=torch.float32,
+                                    low_cpu_mem_usage=True,
+                                )
+                            except Exception as ex2:
+                                logger.info("Direct Qwen3ASR import fallback (%s), attempting AutoModel...", ex2)
+                                from transformers import AutoModel
+                                self._qwen_model = AutoModel.from_pretrained(
+                                    self.model_size,
+                                    trust_remote_code=True,
+                                    dtype=torch.float32,
+                                    low_cpu_mem_usage=True,
+                                )
+
                         self._model_type = "qwen"
                         logger.info("Qwen3-ASR model (%s) loaded successfully", self.model_size)
                         return
