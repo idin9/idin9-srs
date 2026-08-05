@@ -1,6 +1,6 @@
 # idin9-srs
 
-**idin9-srs** is a real-time **Session Recording Server (SRS)** that integrates with AudioCodes Mediant SBC via the SIPREC protocol (RFC 7866). It captures dual RTP audio streams (caller/callee), transcribes speech using OpenAI Whisper, and performs emotion sentiment analysis with a configurable anger score.
+**IDIN9-SRS** is a real-time **Session Recording Server (SRS)** that integrates with AudioCodes Mediant SBC via the SIPREC protocol (RFC 7866). It captures dual RTP audio streams (caller/callee), transcribes speech using OpenAI Whisper, and performs emotion sentiment analysis with a configurable anger score.
 
 ---
 
